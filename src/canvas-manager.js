@@ -63,10 +63,14 @@ export class CanvasManager {
         this.activePoints = [];
         this.isDrawing = false;
         
+        // Navigationsmodus (Maus): Scrollen/Pinch-Zoom durch Browser erlauben
         if (tool === 'none') {
             this.canvas.style.cursor = 'default';
+            this.canvas.style.touchAction = 'pan-x pan-y'; // Finger kann Seite verschieben
         } else {
+            // Messwerkzeuge: Plan fixieren, damit Klicks präzise ankommen
             this.canvas.style.cursor = 'crosshair';
+            this.canvas.style.touchAction = 'none';
         }
         this.redraw();
     }

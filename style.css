@@ -157,7 +157,9 @@ body {
 
 canvas {
     display: block;
-    touch-action: none; 
+    /* Standard: Scrollen/Pinch-Zoom erlauben, 
+       im Messmodus wird das per JS auf 'none' gestellt */
+    touch-action: pan-x pan-y; 
     user-select: none;
     -webkit-user-select: none;
 }
