@@ -10,11 +10,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- UI Elements ---
     const fileInput = document.getElementById('file-input');
-    const toolBtns = document.querySelectorAll('.dock-item'); 
-    const clearBtn = document.getElementById('clear-measurements');
-    const measurementList = document.getElementById('measurement-list');
-    const emptyState = document.getElementById('empty-state');
+    // New: Tool Buttons in Sidebar have class 'tool-icon'
+    const toolBtns = document.querySelectorAll('.tool-icon'); 
     
+    // Bottom Panel Elements
+    const measurementListTbody = document.getElementById('measurement-list');
+    const emptyState = document.getElementById('empty-state');
+    const clearBtn = document.getElementById('clear-measurements');
+
     // Scale UI
     const scaleTrigger = document.getElementById('scale-trigger');
     const scalePopover = document.getElementById('scale-popover');
@@ -46,11 +49,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const importBtn = document.getElementById('import-btn');
     const importInput = document.getElementById('import-json');
 
-    // --- Initialization ---
-
     // Init Color
     const colorInput = document.getElementById('stroke-color');
     canvasManager.setColor(colorInput.value);
+
+    // --- Event Listeners ---
 
     // Toggle Scale Popover
     scaleTrigger.addEventListener('click', (e) => {
@@ -123,7 +126,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Tool Selection ---
     toolBtns.forEach(btn => {
         btn.addEventListener('click', () => {
-            // Spezial-Buttons ignorieren (die haben zwar .dock-item, aber kein data-tool)
+            // Spezial-Buttons ignorieren (die haben zwar .tool-icon, aber evtl kein data-tool)
             if (!btn.dataset.tool) return;
 
             // Remove active class from all TOOLS only
@@ -143,9 +146,9 @@ document.addEventListener('DOMContentLoaded', () => {
             // Handle Scale Tool specifically
             if (tool === 'scale') {
                 scalePopover.classList.remove('hidden');
-                document.querySelector('.scale-option:last-child').classList.add('active-manual');
+                document.querySelector('.scale-section .row.hidden-inputs').parentElement.classList.add('active-manual');
             } else {
-                document.querySelector('.scale-option:last-child').classList.remove('active-manual');
+                document.querySelector('.scale-section .row.hidden-inputs').parentElement.classList.remove('active-manual');
             }
         });
     });
@@ -224,19 +227,19 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     clearBtn.addEventListener('click', () => {
-        if(confirm("Alle Messungen unwiderruflich löschen?")) {
+        if(confirm("ACHTUNG: Möchtest du wirklich ALLE Messungen aus der Liste löschen?")) {
             canvasManager.clearAll();
         }
     });
 
     // Callbacks from CanvasManager
     canvasManager.onMeasurementsUpdated = (measurements) => {
-        updateMeasurementList(measurements);
+        updateMeasurementTable(measurements);
     };
 
     canvasManager.onScaleRequested = () => {
         scalePopover.classList.remove('hidden');
-        document.querySelector('.scale-option:last-child').classList.add('active-manual');
+        document.querySelector('.scale-section .row.hidden-inputs').parentElement.classList.add('active-manual');
         document.getElementById('real-distance-input').focus();
     };
 
@@ -269,14 +272,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- Render List ---
-    function updateMeasurementList(measurements) {
-        measurementList.innerHTML = '';
-        
-        // Filter: Nur Messungen der aktuellen Seite anzeigen? 
-        // Aktuell ist measurements ALLE Messungen. Wir sollten vielleicht filtern oder kennzeichnen.
-        // Aber die Liste zeigt üblicherweise alle an. 
-        // Optional: Seiten-Badge anzeigen.
+    // --- Render List as Table ---
+    function updateMeasurementTable(measurements) {
+        measurementListTbody.innerHTML = '';
         
         if (!measurements || measurements.length === 0) {
             emptyState.style.display = 'block';
@@ -285,39 +283,44 @@ document.addEventListener('DOMContentLoaded', () => {
         emptyState.style.display = 'none';
 
         measurements.forEach((m, index) => {
-            const li = document.createElement('li');
-            li.className = 'measurement-item';
+            const tr = document.createElement('tr');
             
-            // Seite anzeigen wenn > 1
-            const pageInfo = m.pageIndex > 1 ? `<span style="font-size:0.7em; color:#999; margin-left:4px;">(S.${m.pageIndex})</span>` : '';
-
-            li.innerHTML = `
-                <div class="m-left">
-                    <div class="m-color-dot" style="background-color: ${m.color}"></div>
-                    <input type="text" 
-                           class="m-name-input" 
-                           value="${m.name}" 
-                           data-index="${index}"
-                           aria-label="Name ändern">
-                    ${pageInfo}
-                </div>
-                <div class="m-right" style="display:flex; align-items:center; gap:8px;">
-                    <div class="m-value">${formatNumber(m.value)} ${m.unit}</div>
-                    <button class="icon-btn danger delete-single-btn" data-index="${index}" title="Löschen" style="padding:2px;">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            // Formatierung Typ
+            let typeLabel = m.type === 'distance' ? 'Distanz' : 'Fläche';
+            
+            tr.innerHTML = `
+                <td><span class="color-dot" style="background-color: ${m.color}"></span></td>
+                <td>${typeLabel}</td>
+                <td>
+                    <input type="text" class="table-input" value="${m.name}" data-index="${index}" placeholder="Beschriftung">
+                </td>
+                <td><strong>${formatNumber(m.value)} ${m.unit}</strong></td>
+                <td>${m.pageIndex}</td>
+                <td style="text-align:center;">
+                    <button class="btn-icon-table delete-single-btn" data-index="${index}" title="Löschen">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                     </button>
-                </div>
+                </td>
             `;
             
-            measurementList.appendChild(li);
+            measurementListTbody.appendChild(tr);
         });
 
-        document.querySelectorAll('.m-name-input').forEach(input => {
+        // Event Listeners for Table Inputs
+        document.querySelectorAll('.table-input').forEach(input => {
+            // Touch-Focus Verbesserung für iPad
+            input.addEventListener('touchend', (e) => {
+                e.target.focus();
+            });
+            
+            input.addEventListener('focus', (e) => {
+                e.target.select(); // Auto-Select Text on focus
+            });
+
             input.addEventListener('change', (e) => {
                 const idx = parseInt(e.target.dataset.index);
                 canvasManager.updateMeasurementName(idx, e.target.value);
             });
-            input.addEventListener('click', (e) => e.stopPropagation());
         });
 
         document.querySelectorAll('.delete-single-btn').forEach(btn => {
