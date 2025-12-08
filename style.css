@@ -379,11 +379,38 @@ canvas {
 }
 
 .scale-popover h4 {
-    margin-bottom: 16px;
+    margin: 0;
     font-size: 16px;
     font-weight: 700;
     color: var(--text-main);
 }
+
+.popover-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.btn-close-popover {
+    background: transparent;
+    border: none;
+    font-size: 18px;
+    color: var(--text-muted);
+    cursor: pointer;
+    width: 24px; 
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+.btn-close-popover:hover {
+    background: #f1f5f9;
+    color: var(--danger);
+}
+
 .scale-section { margin-bottom: 8px; }
 .scale-section label {
     font-size: 12px;

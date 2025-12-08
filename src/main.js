@@ -21,6 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Scale UI
     const scaleTrigger = document.getElementById('scale-trigger');
     const scalePopover = document.getElementById('scale-popover');
+    const closeScaleBtn = document.getElementById('close-scale-popover'); // NEU
     const currentScaleBadge = document.getElementById('current-scale-badge');
     const ratioInput = document.getElementById('scale-ratio-input');
     const applyRatioBtn = document.getElementById('apply-ratio-btn');
@@ -59,6 +60,15 @@ document.addEventListener('DOMContentLoaded', () => {
     scaleTrigger.addEventListener('click', (e) => {
         scalePopover.classList.toggle('hidden');
         e.stopPropagation();
+    });
+
+    // Close Scale Popover via X button
+    closeScaleBtn.addEventListener('click', (e) => {
+        scalePopover.classList.add('hidden');
+        e.stopPropagation(); // Wichtig, damit es nicht gleich wieder getriggert wird falls Events bubbles
+        // Tool zurücksetzen falls nötig? Eher nicht, User will vielleicht nur das Fenster weg haben.
+        // Optional: Tool auf 'none' setzen, wenn man abbricht?
+        // document.querySelector('[data-tool="none"]').click(); 
     });
     
     // Toggle Export Modal
