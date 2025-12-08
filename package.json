@@ -1,0 +1,17 @@
+{
+  "name": "planimpuls-pdf-measure",
+  "version": "1.0.0",
+  "description": "Simple PDF measurement tool",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^5.0.0"
+  },
+  "dependencies": {
+    "jspdf": "^3.0.4",
+    "jspdf-autotable": "^5.0.2"
+  }
+}
