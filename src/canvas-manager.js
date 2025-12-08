@@ -76,12 +76,21 @@ export class CanvasManager {
     }
 
     undoLastPoint() {
+        // Fall 1: während einer laufenden Messung -> letzten Punkt entfernen
         if (this.isDrawing && this.activePoints.length > 0) {
             this.activePoints.pop();
             if (this.activePoints.length === 0) {
                 this.isDrawing = false;
             }
             this.redraw();
+            return;
+        }
+
+        // Fall 2: keine aktive Zeichnung -> letzte Messung löschen
+        if (!this.isDrawing && this.measurements.length > 0) {
+            this.measurements.pop();
+            this.redraw();
+            if (this.onMeasurementsUpdated) this.onMeasurementsUpdated(this.measurements);
         }
     }
 
