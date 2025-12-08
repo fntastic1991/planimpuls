@@ -33,11 +33,13 @@
                 <img src="https://i.postimg.cc/D0mgfw8Z/Gemini-Generated-Image-ytx2taytx2taytx2.png" alt="Logo" class="logo-img">
             </div>
             <div class="divider"></div>
-            <button class="nav-btn" onclick="document.getElementById('file-input').click()">
+
+            <!-- Wichtig für iPad: direkt anklickbares Label statt JS-click auf hidden input -->
+            <label class="nav-btn file-upload-label" for="file-input">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                 PDF öffnen
-            </button>
-            <input type="file" id="file-input" accept="application/pdf" hidden>
+            </label>
+            <input type="file" id="file-input" accept="application/pdf,.pdf" style="display:none">
         </div>
 
         <div class="nav-center">
