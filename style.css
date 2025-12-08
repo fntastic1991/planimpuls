@@ -39,7 +39,7 @@ body {
 /* --- 1. Top Bar --- */
 .top-bar {
     height: var(--header-height);
-    background: #e9ecef; /* Light grey toolbar */
+    background: white;
     border-bottom: 1px solid var(--border-color);
     display: flex;
     align-items: center;
