@@ -20,3 +20,4 @@ export function formatNumber(num) {
     return num.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+
