@@ -65,10 +65,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // Close Scale Popover via X button
     closeScaleBtn.addEventListener('click', (e) => {
         scalePopover.classList.add('hidden');
-        e.stopPropagation(); // Wichtig, damit es nicht gleich wieder getriggert wird falls Events bubbles
-        // Tool zurücksetzen falls nötig? Eher nicht, User will vielleicht nur das Fenster weg haben.
-        // Optional: Tool auf 'none' setzen, wenn man abbricht?
-        // document.querySelector('[data-tool="none"]').click(); 
+        e.stopPropagation();
+        
+        // Reset Tool to 'none' to avoid confusion (stops Scale mode)
+        canvasManager.setTool('none');
+        document.querySelectorAll('.tool-icon').forEach(b => b.classList.remove('active'));
+        document.querySelector('[data-tool="none"]').classList.add('active');
     });
     
     // Toggle Export Modal

@@ -63,6 +63,9 @@ export class CanvasManager {
         this.activePoints = [];
         this.isDrawing = false;
         
+        // Lupe sicherheitshalber verstecken beim Werkzeugwechsel
+        this.magnifier.classList.add('hidden');
+
         // Navigationsmodus (Maus): Scrollen/Pinch-Zoom durch Browser erlauben
         if (tool === 'none') {
             this.canvas.style.cursor = 'default';
@@ -307,15 +310,14 @@ export class CanvasManager {
             this.updateMagnifier(pos);
         });
 
-        this.canvas.addEventListener('pointerup', (e) => {
-            // Magnifier ausblenden wenn Stift weg? Oder lassen?
-            // Bei Touch verschwindet PointerUp oft.
-            // Wir verstecken Lupe, wenn tool none ist oder pointerleave.
-        });
-        
-        this.canvas.addEventListener('pointerleave', () => {
+        // FIX: Magnifier ausblenden bei PointerUp/Cancel
+        const hideMag = () => {
              this.magnifier.classList.add('hidden');
-        });
+        };
+
+        this.canvas.addEventListener('pointerup', hideMag);
+        this.canvas.addEventListener('pointercancel', hideMag);
+        this.canvas.addEventListener('pointerleave', hideMag);
 
         window.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && this.isDrawing) {
@@ -327,6 +329,7 @@ export class CanvasManager {
                 this.activePoints = [];
                 this.isDrawing = false;
                 this.redraw();
+                hideMag();
             }
             // Undo mit Z (oder Backspace?)
             if ((e.key === 'z' && (e.ctrlKey || e.metaKey)) || e.key === 'Backspace') {
@@ -338,6 +341,8 @@ export class CanvasManager {
     finishMeasurement() {
         if (this.currentTool === 'scale') {
             this.isDrawing = false;
+            // Magnifier verstecken
+            this.magnifier.classList.add('hidden');
             if (this.onScaleRequested) this.onScaleRequested();
             return; 
         }
@@ -370,6 +375,9 @@ export class CanvasManager {
         this.activePoints = [];
         this.isDrawing = false;
         this.redraw();
+        
+        // Sicherstellen dass Lupe weg ist
+        this.magnifier.classList.add('hidden');
 
         if (this.onMeasurementsUpdated) this.onMeasurementsUpdated(this.measurements);
     }
@@ -389,7 +397,12 @@ export class CanvasManager {
 
             this.drawShape(m.points, m.type === 'area', fillStyle, color);
             const center = m.points[m.points.length - 1]; 
-            this.drawLabel(center, `${formatNumber(m.value)} ${m.unit}`, color);
+            // Label zeigt jetzt Name + Wert an? Noch nicht implementiert wie im Chat gewünscht,
+            // aber User wollte es. 
+            // Aktuell: nur Wert. Ändern wir das gleich?
+            // "ist es möglich, wenn ich eine distanz gemacht habe, dass es bei der linie die Distanz (nr) steht"
+            // -> Ja, m.name verwenden.
+            this.drawLabel(center, `${m.name}: ${formatNumber(m.value)} ${m.unit}`, color);
         });
 
         // 2. Aktive Zeichnung
