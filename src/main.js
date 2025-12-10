@@ -298,7 +298,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const tr = document.createElement('tr');
             
             // Formatierung Typ
-            let typeLabel = m.type === 'distance' ? 'Distanz' : 'Fläche';
+            let typeLabel = '';
+            if(m.type === 'distance') typeLabel = 'Distanz';
+            else if(m.type === 'area') typeLabel = 'Fläche';
+            else if(m.type === 'perimeter') typeLabel = 'Umfang';
             
             tr.innerHTML = `
                 <td><span class="color-dot" style="background-color: ${m.color}"></span></td>

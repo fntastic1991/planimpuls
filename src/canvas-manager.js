@@ -1,5 +1,5 @@
 // Verwaltet das Zeichen-Canvas und die Werkzeuge
-import { calculateDistance, calculatePolygonArea, formatNumber } from './geometry.js';
+import { calculateDistance, calculatePolygonArea, calculatePolylineLength, formatNumber } from './geometry.js';
 
 export class CanvasManager {
     constructor(overlayId, pdfCanvasId) {
@@ -21,9 +21,15 @@ export class CanvasManager {
         this.activePoints = []; 
         this.isDrawing = false;
         
-        // Settings
-        this.scaleFactor = 1.0; 
-        this.unit = 'px';
+        // Settings: Default 1:50 (approximate for 72DPI PDF)
+        // 1:50 -> 1cm paper = 50cm real.
+        // PDF default 72 DPI -> 1 inch = 2.54 cm.
+        // 72 px = 1 inch = 2.54 cm paper.
+        // 1 px = 2.54 / 72 cm paper = 0.03527 cm paper.
+        // Real world: 0.03527 * 50 = 1.7638 cm = 0.017638 m.
+        // So 1 px approx 0.0176 m.
+        this.scaleFactor = 0.017638; 
+        this.unit = 'm';
         this.currentColor = '#007bff';
         this.currentPageIndex = 1;
 
@@ -90,7 +96,10 @@ export class CanvasManager {
         }
 
         // Fall 2: keine aktive Zeichnung -> letzte Messung löschen
-        if (!this.isDrawing && this.measurements.length > 0) {
+        // NUR wenn Tool aktiv ist? Oder immer? 
+        // User Feedback: "Ctrl-Z geht nicht". 
+        // Meist erwartet man globales Undo, auch wenn man nicht zeichnet.
+        if (this.measurements.length > 0) {
             this.measurements.pop();
             this.redraw();
             if (this.onMeasurementsUpdated) this.onMeasurementsUpdated(this.measurements);
@@ -124,6 +133,9 @@ export class CanvasManager {
             if (m.type === 'distance') {
                 const pxDist = calculateDistance(m.points[0], m.points[1]);
                 m.value = pxDist * this.scaleFactor;
+            } else if (m.type === 'perimeter') {
+                const pxLen = calculatePolylineLength(m.points);
+                m.value = pxLen * this.scaleFactor;
             } else if (m.type === 'area') {
                 const pxArea = calculatePolygonArea(m.points);
                 m.value = pxArea * (this.scaleFactor * this.scaleFactor);
@@ -135,8 +147,6 @@ export class CanvasManager {
     }
 
     clearAll() {
-        // Löscht nur Messungen der aktuellen Seite oder alle? 
-        // User Erwartung "Alles löschen" -> Alles weg.
         this.measurements = [];
         this.activePoints = [];
         this.redraw();
@@ -144,7 +154,6 @@ export class CanvasManager {
     }
 
     deleteMeasurement(index) {
-        // Index bezieht sich auf das gesamte Array, das muss in der UI beachtet werden
         this.measurements.splice(index, 1);
         this.redraw();
         if (this.onMeasurementsUpdated) this.onMeasurementsUpdated(this.measurements);
@@ -269,7 +278,7 @@ export class CanvasManager {
                     this.finishMeasurement();
                     this.canvas.releasePointerCapture(e.pointerId);
                 }
-            } else if (this.currentTool === 'area') {
+            } else if (this.currentTool === 'area' || this.currentTool === 'perimeter') {
                 // Polygon Schließen Check (via Snap flag)
                 if (snap && snap.isStart && this.activePoints.length > 2) {
                     this.finishMeasurement();
@@ -286,8 +295,6 @@ export class CanvasManager {
 
         this.canvas.addEventListener('pointermove', (e) => {
             if (this.currentTool === 'none') return;
-            // e.preventDefault(); // Kann Scrollen blockieren, nur wenn drawing? 
-            // Besser nur preventDefault wenn isDrawing oder tool active
             
             let pos = getPos(e);
             
@@ -303,14 +310,12 @@ export class CanvasManager {
             if (this.isDrawing) {
                 this.redraw(pos);
             } else {
-                // Auch ohne Drawing Snapping zeigen
                 this.redraw(); // Redraw cursor/snap indicator
             }
             
             this.updateMagnifier(pos);
         });
 
-        // FIX: Magnifier ausblenden bei PointerUp/Cancel
         const hideMag = () => {
              this.magnifier.classList.add('hidden');
         };
@@ -319,9 +324,11 @@ export class CanvasManager {
         this.canvas.addEventListener('pointercancel', hideMag);
         this.canvas.addEventListener('pointerleave', hideMag);
 
+        // Global Keydown (for Undo) needs to be on Window
         window.addEventListener('keydown', (e) => {
+            // Check for Drawing Completion
             if (e.key === 'Enter' && this.isDrawing) {
-                if (this.currentTool === 'area' && this.activePoints.length > 2) {
+                if ((this.currentTool === 'area' || this.currentTool === 'perimeter') && this.activePoints.length > 1) {
                     this.finishMeasurement();
                 }
             }
@@ -331,8 +338,13 @@ export class CanvasManager {
                 this.redraw();
                 hideMag();
             }
-            // Undo mit Z (oder Backspace?)
-            if ((e.key === 'z' && (e.ctrlKey || e.metaKey)) || e.key === 'Backspace') {
+            
+            // Undo mit Ctrl+Z (oder Cmd+Z)
+            // Prüfen ob wir in einem Input sind (dann soll Browser-Undo greifen)
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+            if ((e.key.toLowerCase() === 'z' && (e.ctrlKey || e.metaKey)) || e.key === 'Backspace') {
+                e.preventDefault(); // Browser Undo verhindern
                 this.undoLastPoint();
             }
         });
@@ -341,7 +353,6 @@ export class CanvasManager {
     finishMeasurement() {
         if (this.currentTool === 'scale') {
             this.isDrawing = false;
-            // Magnifier verstecken
             this.magnifier.classList.add('hidden');
             if (this.onScaleRequested) this.onScaleRequested();
             return; 
@@ -353,13 +364,19 @@ export class CanvasManager {
         if (this.currentTool === 'distance') {
             const pxDist = calculateDistance(this.activePoints[0], this.activePoints[1]);
             value = pxDist * this.scaleFactor;
+        } else if (this.currentTool === 'perimeter') {
+             const pxLen = calculatePolylineLength(this.activePoints);
+             value = pxLen * this.scaleFactor;
         } else if (this.currentTool === 'area') {
             const pxArea = calculatePolygonArea(this.activePoints);
             value = pxArea * (this.scaleFactor * this.scaleFactor);
         }
 
         const count = this.measurements.filter(m => m.type === type).length + 1;
-        const name = type === 'area' ? `Fläche ${count}` : `Distanz ${count}`;
+        let name = "";
+        if(type === 'area') name = `Fläche ${count}`;
+        else if(type === 'perimeter') name = `Umfang ${count}`;
+        else name = `Distanz ${count}`;
 
         this.measurements.push({
             id: Date.now(),
@@ -369,14 +386,13 @@ export class CanvasManager {
             unit: type === 'area' ? `${this.unit}²` : this.unit,
             color: this.currentColor,
             name: name,
-            pageIndex: this.currentPageIndex // Seite speichern
+            pageIndex: this.currentPageIndex 
         });
 
         this.activePoints = [];
         this.isDrawing = false;
         this.redraw();
         
-        // Sicherstellen dass Lupe weg ist
         this.magnifier.classList.add('hidden');
 
         if (this.onMeasurementsUpdated) this.onMeasurementsUpdated(this.measurements);
@@ -395,13 +411,14 @@ export class CanvasManager {
             const b = parseInt(color.slice(5, 7), 16);
             const fillStyle = `rgba(${r}, ${g}, ${b}, 0.2)`;
 
-            this.drawShape(m.points, m.type === 'area', fillStyle, color);
+            const isArea = m.type === 'area';
+            // Perimeter is also a path like area but not filled (or maybe filled lightly?)
+            // Usually perimeter is just the line.
+            
+            this.drawShape(m.points, isArea, fillStyle, color, m.type === 'perimeter');
+            
+            // Label Position
             const center = m.points[m.points.length - 1]; 
-            // Label zeigt jetzt Name + Wert an? Noch nicht implementiert wie im Chat gewünscht,
-            // aber User wollte es. 
-            // Aktuell: nur Wert. Ändern wir das gleich?
-            // "ist es möglich, wenn ich eine distanz gemacht habe, dass es bei der linie die Distanz (nr) steht"
-            // -> Ja, m.name verwenden.
             this.drawLabel(center, `${m.name}: ${formatNumber(m.value)} ${m.unit}`, color);
         });
 
@@ -411,12 +428,13 @@ export class CanvasManager {
             if (previewPos) pointsToDraw.push(previewPos);
 
             const isArea = this.currentTool === 'area';
+            const isPerimeter = this.currentTool === 'perimeter';
             const color = this.currentColor;
             const r = parseInt(color.slice(1, 3), 16);
             const g = parseInt(color.slice(3, 5), 16);
             const b = parseInt(color.slice(5, 7), 16);
 
-            this.drawShape(pointsToDraw, isArea, `rgba(${r},${g},${b}, 0.2)`, color);
+            this.drawShape(pointsToDraw, isArea, `rgba(${r},${g},${b}, 0.2)`, color, isPerimeter);
         }
         
         // 3. Snap Indikator
@@ -431,7 +449,7 @@ export class CanvasManager {
         }
     }
 
-    drawShape(points, fill, fillColor, strokeColor) {
+    drawShape(points, fill, fillColor, strokeColor, isPerimeter = false) {
         if (points.length === 0) return;
 
         this.ctx.beginPath();
@@ -440,11 +458,16 @@ export class CanvasManager {
             this.ctx.lineTo(points[i].x, points[i].y);
         }
         
+        // Area gets closed and filled
         if (fill) {
             this.ctx.closePath();
             this.ctx.fillStyle = fillColor;
             this.ctx.fill();
         }
+        
+        // Perimeter can be open or closed? "Umfang" implies closed usually, but let's allow open "Strecke"
+        // If it's perimeter tool, we don't auto-close visually unless user snapped to start.
+        // But if user snapped to start (points[0] == last), it's closed.
         
         this.ctx.strokeStyle = strokeColor;
         this.ctx.lineWidth = 2;

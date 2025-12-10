@@ -11,7 +11,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     
     <!-- Styles -->
-    <link rel="stylesheet" href="style.css?v=4">
+    <link rel="stylesheet" href="style.css?v=5">
 
     <!-- App-Icon / Manifest -->
     <link rel="manifest" href="manifest.json">
@@ -53,7 +53,7 @@
             <div class="tb-center">
                 <div class="scale-status" id="scale-trigger">
                     <span class="label">Massstab:</span>
-                    <strong id="current-scale-badge">1:1 (px)</strong>
+                    <strong id="current-scale-badge">1:50 (m)</strong>
                 </div>
             </div>
 
@@ -76,6 +76,9 @@
                     </button>
                     <button class="tool-icon" data-tool="distance" title="Distanz messen">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="4" cy="4" r="2"/><circle cx="20" cy="20" r="2"/><line x1="5.5" y1="5.5" x2="18.5" y2="18.5"/></svg>
+                    </button>
+                    <button class="tool-icon" data-tool="perimeter" title="Umfang / Strecke">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
                     </button>
                     <button class="tool-icon" data-tool="area" title="Fläche messen">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l-9.5 5.5 3.5 13.5h12l3.5-13.5z"/></svg>
@@ -102,7 +105,7 @@
                 <div class="spacer"></div>
 
                 <div class="tool-group hidden" id="undo-group">
-                    <button class="tool-icon danger" id="undo-btn" title="Undo">
+                    <button class="tool-icon danger" id="undo-btn" title="Rückgängig">
                          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
                     </button>
                 </div>
