@@ -11,7 +11,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     
     <!-- Styles -->
-    <link rel="stylesheet" href="style.css?v=5">
+    <link rel="stylesheet" href="style.css?v=12">
 
     <!-- App-Icon / Manifest -->
     <link rel="manifest" href="manifest.json">
@@ -26,7 +26,7 @@
 <body>
 
     <!-- App Container -->
-    <div class="app-container">
+    <div class="app-container app-empty" id="app-root">
         
         <!-- 1. Top Bar (Menu Header) -->
         <header class="top-bar">
@@ -112,8 +112,29 @@
             </aside>
 
             <!-- Canvas Stage -->
-            <main class="canvas-stage">
-                <div id="canvas-container" class="canvas-wrapper">
+            <main class="canvas-stage" id="canvas-stage">
+                
+                <!-- 1. Empty State (Visible initially) -->
+                <div id="app-empty-state" class="empty-stage">
+                    <div class="empty-content">
+                        <div class="empty-kicker">PDF Aufmass • schnell • präzise</div>
+                        <div class="empty-icon-circle" aria-hidden="true">
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+                        </div>
+                        <h2>Projekt starten</h2>
+                        <p>Lade einen Plan (PDF), um mit der Vermessung zu beginnen.</p>
+                        
+                        <div class="empty-actions">
+                            <button id="big-open-btn" class="btn-primary btn-large">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+                            Plan öffnen
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. Canvas Container (Hidden initially) -->
+                <div id="canvas-container" class="canvas-wrapper hidden">
                     <canvas id="pdf-render"></canvas>
                     <canvas id="drawing-layer"></canvas>
                 </div>
@@ -123,12 +144,27 @@
         <!-- 3. Bottom Panel (Measurements List) -->
         <footer class="bottom-panel">
             <div class="panel-header">
-                <h3>Markups / Messungen</h3>
+                <div class="panel-left">
+                    <h3>Markups</h3>
+                    <div class="panel-tabs" id="bottom-panel-tabs" role="tablist" aria-label="Markups Tabs">
+                        <button class="tab-btn active" data-tab="list" role="tab" aria-selected="true">Messungen</button>
+                        <button class="tab-btn" data-tab="summary" role="tab" aria-selected="false">Zusammenfassung</button>
+                    </div>
+                </div>
                 <div class="panel-actions">
-                     <button id="clear-measurements" class="text-btn danger">Alle löschen</button>
+                    <div class="panel-actions-list" data-actions="list">
+                        <button id="clear-measurements" class="text-btn danger">Alle löschen</button>
+                    </div>
+                    <div class="panel-actions-summary hidden" data-actions="summary">
+                        <div class="segmented" id="summary-scope" title="Zusammenfassung">
+                            <button class="seg-btn active" data-scope="page">Seite</button>
+                            <button class="seg-btn" data-scope="all">Alle</button>
+                        </div>
+                    </div>
                 </div>
             </div>
             <div class="panel-content">
+                <div class="panel-tab-content" data-tab-content="list">
                 <table class="markup-table">
                     <thead>
                         <tr>
@@ -145,37 +181,107 @@
                     </tbody>
                 </table>
                 <div id="empty-state" class="empty-message">Keine Messungen vorhanden.</div>
+                </div>
+
+                <div class="panel-tab-content hidden" data-tab-content="summary">
+                    <div class="panel-summary" id="live-summary">
+                        <div class="summary-card" data-type="distance">
+                            <span class="summary-dot" id="dot-distance"></span>
+                            <div class="summary-text">
+                                <label>Total Distanz</label>
+                                <strong id="live-total-distance">0.00 m</strong>
+                            </div>
+                        </div>
+                        <div class="summary-card" data-type="perimeter">
+                            <span class="summary-dot" id="dot-perimeter"></span>
+                            <div class="summary-text">
+                                <label>Total Umfang</label>
+                                <strong id="live-total-perimeter">0.00 m</strong>
+                            </div>
+                        </div>
+                        <div class="summary-card" data-type="area">
+                            <span class="summary-dot" id="dot-area"></span>
+                            <div class="summary-text">
+                                <label>Total Fläche</label>
+                                <strong id="live-total-area">0.00 m²</strong>
+                            </div>
+                        </div>
+                        <div class="summary-meta" id="live-summary-meta">—</div>
+                    </div>
+                    <div class="summary-help">
+                        Tipp: In der Messungs-Liste kannst du jede Messung beschriften. Die Zusammenfassung rechnet live mit.
+                    </div>
+                </div>
             </div>
         </footer>
 
     </div>
 
     <!-- Modals (Hidden) -->
-    <!-- Scale Popover -->
-    <div id="scale-popover" class="scale-popover hidden">
-        <div class="popover-header-row">
-            <h4>Massstab kalibrieren</h4>
-            <button id="close-scale-popover" class="btn-close-popover" title="Schliessen">✕</button>
-        </div>
-        <div class="scale-section">
-            <label>Verhältnis (1:x)</label>
-            <div class="row">
-                <span>1:</span>
-                <input type="number" id="scale-ratio-input" placeholder="50">
-                <button id="apply-ratio-btn">Setzen</button>
+    
+    <!-- 1. Scale Choice Modal (Initial Choice) -->
+    <div id="scale-choice-modal" class="modal-overlay hidden">
+        <div class="modal choice-modal">
+            <div class="modal-header">
+                <h3>Massstab festlegen</h3>
+                <button id="close-choice-modal" class="icon-close">✕</button>
+            </div>
+            <div class="modal-body choice-body">
+                <div class="choice-option" id="choice-known">
+                    <div class="icon-circle bg-blue">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+                    </div>
+                    <div class="choice-content">
+                        <h4>Ich kenne den Massstab</h4>
+                        <p>Z.B. 1:50 oder 1:100 eingeben</p>
+                    </div>
+                    <div class="choice-arrow">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+                    </div>
+                </div>
+                
+                <div class="choice-option" id="choice-measure">
+                    <div class="icon-circle bg-green">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 6H3"/><path d="M21 12H3"/><path d="M21 18H3"/></svg>
+                    </div>
+                    <div class="choice-content">
+                        <h4>Referenz messen</h4>
+                        <p>Eine bekannte Strecke im Plan abgreifen</p>
+                    </div>
+                    <div class="choice-arrow">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+                    </div>
+                </div>
+            </div>
+            <!-- Sub-View: Manual Input (Hidden by default) -->
+            <div id="scale-input-view" class="modal-body hidden">
+                <label class="input-label">Massstab 1:x</label>
+                <div class="row-input">
+                    <span class="prefix">1 :</span>
+                    <input type="number" id="manual-ratio-input" placeholder="50" class="big-input">
+                </div>
+                <button id="save-ratio-btn" class="btn-primary full-width">Speichern</button>
+                <button id="back-to-choice" class="text-btn small-center">Zurück</button>
             </div>
         </div>
-        <div class="or-divider">- oder -</div>
-        <div class="scale-section">
-            <label>Manuell (Zeichnen & Eingeben)</label>
-            <div id="manual-scale-inputs" class="row hidden-inputs">
-                <input type="number" id="real-distance-input" placeholder="Länge">
-                <select id="unit-select">
+    </div>
+
+    <!-- 2. Calibration Input Overlay (After measuring) -->
+    <div id="calibration-overlay" class="calibration-overlay hidden">
+        <div class="calib-card">
+            <h4>Referenzlänge definieren</h4>
+            <p>Wie lang ist die gezeichnete Linie in Wirklichkeit?</p>
+            <div class="calib-inputs">
+                <input type="number" id="calib-length" placeholder="Länge" autofocus>
+                <select id="calib-unit">
                     <option value="m">m</option>
                     <option value="cm">cm</option>
                     <option value="mm">mm</option>
                 </select>
-                <button id="confirm-scale">OK</button>
+            </div>
+            <div class="calib-actions">
+                <button id="calib-cancel" class="btn-secondary">Abbrechen</button>
+                <button id="calib-save" class="btn-primary">OK</button>
             </div>
         </div>
     </div>

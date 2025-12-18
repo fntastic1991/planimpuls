@@ -30,7 +30,15 @@ export class CanvasManager {
         // So 1 px approx 0.0176 m.
         this.scaleFactor = 0.017638; 
         this.unit = 'm';
-        this.currentColor = '#007bff';
+        this.scaleRatio = 50; // 1:50 (Default, falls verfügbar)
+        this.lastScaleCalibration = null; // { pixelDist, mmOnPaper, realDistanceMeters, ratio }
+        this.typeColors = {
+            distance: '#3b82f6',
+            perimeter: '#f59e0b',
+            area: '#10b981',
+            scale: '#64748b'
+        };
+        this.currentColor = this.typeColors.distance;
         this.currentPageIndex = 1;
 
         // Snapping
@@ -54,6 +62,22 @@ export class CanvasManager {
 
     setColor(color) {
         this.currentColor = color;
+    }
+
+    setTypeColor(type, color, recolorExisting = true) {
+        if (!type || !color) return;
+        this.typeColors[type] = color;
+        if (this.currentTool === type) {
+            this.currentColor = color;
+        }
+
+        if (recolorExisting) {
+            this.measurements.forEach(m => {
+                if (m.type === type) m.color = color;
+            });
+        }
+        this.redraw();
+        if (this.onMeasurementsUpdated) this.onMeasurementsUpdated(this.measurements);
     }
 
     resize(width, height) {
@@ -80,6 +104,11 @@ export class CanvasManager {
             // Messwerkzeuge: Plan fixieren, damit Klicks präzise ankommen
             this.canvas.style.cursor = 'crosshair';
             this.canvas.style.touchAction = 'none';
+        }
+
+        // Farbe automatisch pro Messart setzen (damit Fläche/Umfang/Distanz klar unterscheidbar sind)
+        if (this.typeColors[tool]) {
+            this.currentColor = this.typeColors[tool];
         }
         this.redraw();
     }
@@ -123,9 +152,69 @@ export class CanvasManager {
         const metersPerPixelOnPaper = (1 / renderScale) * (1 / 72) * 0.0254;
         this.scaleFactor = metersPerPixelOnPaper * denominator;
         this.unit = 'm'; 
+        this.scaleRatio = denominator;
+        this.lastScaleCalibration = { ratio: denominator, source: 'ratio' };
         this.activePoints = [];
         this.setTool('none');
         this.recalculateAll();
+    }
+
+    /**
+     * Liefert Infos zur aktuell gezeichneten Referenzlinie (Scale-Tool),
+     * um dem User im Popover Feedback zu geben.
+     */
+    getActiveReferenceInfo(renderScale) {
+        if (!renderScale) return null;
+        if (!this.activePoints || this.activePoints.length !== 2) return null;
+        const pixelDist = calculateDistance(this.activePoints[0], this.activePoints[1]);
+        const mmOnPaper = (pixelDist / renderScale) * (25.4 / 72);
+        return { pixelDist, mmOnPaper };
+    }
+
+    /**
+     * Kalibrierung per Referenzlinie: User misst eine Strecke im Plan und gibt die reale Länge ein.
+     * Wir setzen scaleFactor (für die Messwerte) und berechnen zusätzlich den Massstab 1:x.
+     */
+    setScaleFromReference(realDistance, unitName, renderScale) {
+        if (this.activePoints.length !== 2) return null;
+        const p1 = this.activePoints[0];
+        const p2 = this.activePoints[1];
+        const pixelDist = calculateDistance(p1, p2);
+
+        // 1) scaleFactor in der gewählten Einheit (damit UI-Werte in m/cm/mm korrekt sind)
+        this.scaleFactor = realDistance / pixelDist;
+        this.unit = unitName;
+
+        // 2) Massstab 1:x berechnen (nur wenn PDF Render-Scale bekannt ist)
+        let ratio = null;
+        let mmOnPaper = null;
+        let realDistanceMeters = null;
+        if (renderScale) {
+            mmOnPaper = (pixelDist / renderScale) * (25.4 / 72);
+            const metersOnPaper = mmOnPaper / 1000;
+
+            // Real-Länge in Meter umrechnen
+            if (unitName === 'm') realDistanceMeters = realDistance;
+            else if (unitName === 'cm') realDistanceMeters = realDistance / 100;
+            else if (unitName === 'mm') realDistanceMeters = realDistance / 1000;
+            else realDistanceMeters = realDistance; // Fallback
+
+            ratio = metersOnPaper > 0 ? (realDistanceMeters / metersOnPaper) : null;
+            if (ratio && ratio > 0) this.scaleRatio = ratio;
+        }
+
+        this.lastScaleCalibration = {
+            pixelDist,
+            mmOnPaper,
+            realDistanceMeters,
+            ratio,
+            source: 'reference'
+        };
+
+        this.activePoints = [];
+        this.setTool('none');
+        this.recalculateAll();
+        return this.lastScaleCalibration;
     }
 
     recalculateAll() {
@@ -384,7 +473,7 @@ export class CanvasManager {
             points: [...this.activePoints],
             value: value,
             unit: type === 'area' ? `${this.unit}²` : this.unit,
-            color: this.currentColor,
+            color: this.typeColors[type] || this.currentColor,
             name: name,
             pageIndex: this.currentPageIndex 
         });

@@ -13,10 +13,13 @@ export class ExportManager {
 
     getSummary() {
         let totalDistance = 0;
+        let totalPerimeter = 0;
         let totalArea = 0;
         let distanceCount = 0;
+        let perimeterCount = 0;
         let areaCount = 0;
         let unitDist = 'm';
+        let unitPerimeter = 'm';
         let unitArea = 'm²';
 
         this.measurements.forEach(m => {
@@ -24,6 +27,10 @@ export class ExportManager {
                 totalDistance += m.value;
                 distanceCount++;
                 unitDist = m.unit; // Nimmt die letzte Einheit an (meist gleich)
+            } else if (m.type === 'perimeter') {
+                totalPerimeter += m.value;
+                perimeterCount++;
+                unitPerimeter = m.unit;
             } else if (m.type === 'area') {
                 totalArea += m.value;
                 areaCount++;
@@ -32,11 +39,15 @@ export class ExportManager {
         });
 
         return {
+            totalLength: totalDistance + totalPerimeter,
             totalDistance,
+            totalPerimeter,
             totalArea,
             distanceCount,
+            perimeterCount,
             areaCount,
             unitDist,
+            unitPerimeter,
             unitArea
         };
     }
@@ -57,7 +68,7 @@ export class ExportManager {
         const tableBody = this.measurements.map((m, index) => [
             index + 1,
             m.name,
-            m.type === 'area' ? 'Fläche' : 'Distanz',
+            m.type === 'area' ? 'Fläche' : (m.type === 'perimeter' ? 'Umfang' : 'Distanz'),
             `${formatNumber(m.value)} ${m.unit}`
         ]);
 
@@ -65,6 +76,9 @@ export class ExportManager {
         const summary = this.getSummary();
         if (summary.distanceCount > 0) {
             tableBody.push(['', 'Total Distanzen', '', `${formatNumber(summary.totalDistance)} ${summary.unitDist}`]);
+        }
+        if (summary.perimeterCount > 0) {
+            tableBody.push(['', 'Total Umfänge', '', `${formatNumber(summary.totalPerimeter)} ${summary.unitPerimeter}`]);
         }
         if (summary.areaCount > 0) {
             tableBody.push(['', 'Total Flächen', '', `${formatNumber(summary.totalArea)} ${summary.unitArea}`]);
@@ -89,7 +103,7 @@ export class ExportManager {
         this.measurements.forEach(m => {
             const row = [
                 m.name,
-                m.type === 'area' ? 'Fläche' : 'Distanz',
+                m.type === 'area' ? 'Fläche' : (m.type === 'perimeter' ? 'Umfang' : 'Distanz'),
                 formatNumber(m.value).replace('.', ','), // Deutsche CSV Formatierung
                 m.unit
             ].join(";");
@@ -99,6 +113,7 @@ export class ExportManager {
         // Summary Rows
         const summary = this.getSummary();
         csvContent += `\nTotal Distanzen;;${formatNumber(summary.totalDistance).replace('.', ',')};${summary.unitDist}\n`;
+        csvContent += `Total Umfänge;;${formatNumber(summary.totalPerimeter).replace('.', ',')};${summary.unitPerimeter}\n`;
         csvContent += `Total Flächen;;${formatNumber(summary.totalArea).replace('.', ',')};${summary.unitArea}\n`;
 
         const encodedUri = encodeURI(csvContent);
