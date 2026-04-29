@@ -140,11 +140,10 @@ export class ExportManager {
                 startY: kpiY + 32,
                 head: [['#', 'Etage', 'Massstab', 'Länge', 'Fläche', 'Stk.', 'Messungen']],
                 body: floorRows,
-                theme: 'striped',
-                headStyles: { fillColor: TEAL, textColor: 255, fontStyle: 'bold', fontSize: 9.5 },
-                bodyStyles: { fontSize: 9.5, textColor: INK, cellPadding: 2.6 },
-                alternateRowStyles: { fillColor: PAPER_SOFT },
-                styles: { lineColor: LINE, lineWidth: 0.1 },
+                theme: 'plain',
+                headStyles: { fillColor: false, textColor: TEAL, fontStyle: 'bold', fontSize: 9, lineColor: TEAL, lineWidth: { bottom: 0.4 } },
+                bodyStyles: { fontSize: 9.5, textColor: INK, cellPadding: { top: 2.4, right: 3, bottom: 2.4, left: 3 } },
+                styles: { lineColor: LINE, lineWidth: { bottom: 0.1 } },
             });
         }
 
@@ -183,36 +182,40 @@ export class ExportManager {
                 const pageW = doc.internal.pageSize.getWidth();
                 const pageH = doc.internal.pageSize.getHeight();
 
-                // Header-Streifen
-                doc.setFillColor(...TEAL);
-                doc.rect(0, 0, pageW, 28, 'F');
+                // Header — weisser Hintergrund mit Logo links und Trennlinie
                 if (logoUrl) {
-                    try { doc.addImage(logoUrl, 'PNG', pageW - 96, 6, 80, 16); } catch {}
+                    try { doc.addImage(logoUrl, 'PNG', 18, 10, 60, 60 * (84 / 308)); } catch {}
                 }
-                doc.setTextColor(255);
-                doc.setFontSize(11);
+                doc.setTextColor(...INK);
+                doc.setFontSize(12);
                 doc.setFont('helvetica', 'bold');
-                doc.text(project.name || 'plan.impuls', 18, 13);
+                doc.text(project.name || 'plan.impuls', pageW - 18, 18, { align: 'right' });
                 doc.setFont('helvetica', 'normal');
                 doc.setFontSize(9);
-                doc.text(`${floor.name}  •  Seite ${p}/${entry.pageCount}`, 18, 22);
+                doc.setTextColor(...MUTED);
+                doc.text(`${floor.name}  •  Seite ${p}/${entry.pageCount}`, pageW - 18, 28, { align: 'right' });
+                doc.setDrawColor(...TEAL);
+                doc.setLineWidth(0.6);
+                doc.line(18, 36, pageW - 18, 36);
 
                 const img = new Image();
                 await new Promise(res => { img.onload = res; img.src = dataUrl; });
-                const availH = pageH - 38;
+                const availH = pageH - 60;
                 const ratio = Math.min(pageW / img.width, availH / img.height) * 0.95;
                 const w = img.width * ratio, h = img.height * ratio;
-                const x = (pageW - w) / 2, y = 32 + (availH - h) / 2;
+                const x = (pageW - w) / 2, y = 44 + (availH - h) / 2;
 
-                // Schatten unter dem Plan
-                doc.setFillColor(220, 220, 220);
-                doc.rect(x + 3, y + 3, w, h, 'F');
+                // Plan ohne Schatten — clean
                 doc.addImage(dataUrl, 'PNG', x, y, w, h);
 
                 // Footer
+                doc.setDrawColor(...LINE);
+                doc.setLineWidth(0.2);
+                doc.line(18, pageH - 16, pageW - 18, pageH - 16);
                 doc.setFontSize(8);
                 doc.setTextColor(...MUTED);
-                doc.text(`${BRAND.name} · ${BRAND.company}  •  ${new Date().toLocaleDateString('de-CH')}`, 18, pageH - 10);
+                doc.text(`${BRAND.name} · ${BRAND.company}`, 18, pageH - 10);
+                doc.text(new Date().toLocaleDateString('de-CH'), pageW - 18, pageH - 10, { align: 'right' });
             }
         }
 
@@ -334,147 +337,129 @@ export class ExportManager {
     // Berichts-Bausteine
     // =====================================================
     _drawCover(doc, project, pageW, pageH, logoUrl) {
-        // Hintergrund teal
-        doc.setFillColor(...TEAL);
+        // Reines Weiss
+        doc.setFillColor(255, 255, 255);
         doc.rect(0, 0, pageW, pageH, 'F');
 
-        // Coral Akzent-Streifen unten
-        doc.setFillColor(...CORAL);
-        doc.rect(0, pageH - 14, pageW, 14, 'F');
+        const margin = 24;
 
-        // Großes Wordmark
-        const cx = pageW / 2;
+        // Logo oben links
         if (logoUrl) {
-            // Logo zentral oben — das Logo ist 308x84, Aspect ~3.67
-            const lw = 80, lh = lw * (84 / 308);
-            try {
-                doc.addImage(logoUrl, 'PNG', cx - lw / 2, 38, lw, lh);
-            } catch {}
-        } else {
-            // Fallback-Wordmark direkt gezeichnet
-            doc.setFontSize(40);
-            doc.setFont('helvetica', 'bold');
-            doc.setTextColor(255);
-            doc.text('plan', cx - 20, 60, { align: 'right' });
-            doc.setTextColor(...CORAL_LIGHT);
-            doc.text('.', cx - 20, 60, { align: 'left' });
-            doc.setTextColor(255);
-            doc.text('impuls', cx + 4, 60, { align: 'left' });
+            const lw = 50, lh = lw * (84 / 308);
+            try { doc.addImage(logoUrl, 'PNG', margin, margin, lw, lh); } catch {}
         }
 
-        // Firmenname
-        doc.setTextColor(255);
-        doc.setFontSize(10);
+        // Firmenname oben rechts
         doc.setFont('helvetica', 'bold');
-        doc.text(BRAND.company, cx, 80, { align: 'center', charSpace: 0.6 });
-
-        // Tagline
-        doc.setFontSize(10);
+        doc.setFontSize(9);
+        doc.setTextColor(...INK);
+        doc.text(BRAND.company, pageW - margin, margin + 5, { align: 'right' });
         doc.setFont('helvetica', 'normal');
-        doc.text(BRAND.tagline, cx, 89, { align: 'center' });
-
-        // Großer Projekt-Block in der Mitte
-        const blockY = 130;
-        doc.setFillColor(255);
-        doc.roundedRect(20, blockY, pageW - 40, 110, 4, 4, 'F');
-
+        doc.setFontSize(8);
         doc.setTextColor(...MUTED);
+        doc.text(BRAND.tagline, pageW - margin, margin + 10, { align: 'right' });
+
+        // Dünne teal Trennlinie unter Header
+        doc.setDrawColor(...TEAL);
+        doc.setLineWidth(0.4);
+        doc.line(margin, margin + 18, pageW - margin, margin + 18);
+
+        // BIG Project Title — viel Weissraum darüber
+        const titleY = 90;
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(9);
-        doc.text('PROJEKT', 32, blockY + 16);
+        doc.setTextColor(...MUTED);
+        doc.text('BERICHT', margin, titleY - 8, { charSpace: 1.2 });
 
-        doc.setTextColor(...INK);
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(24);
-        doc.text(project.name || 'Unbenanntes Projekt', 32, blockY + 32);
+        doc.setFontSize(28);
+        doc.setTextColor(...INK);
+        const projectName = project.name || 'Unbenanntes Projekt';
+        doc.text(projectName, margin, titleY, { maxWidth: pageW - margin * 2 });
 
-        // Linie
-        doc.setDrawColor(...LINE);
-        doc.setLineWidth(0.4);
-        doc.line(32, blockY + 42, pageW - 32, blockY + 42);
+        // Coral Akzent-Strich (kurz, links unter dem Titel)
+        doc.setFillColor(...CORAL);
+        doc.rect(margin, titleY + 6, 32, 1.2, 'F');
 
-        // Meta-Felder
+        // Meta-Felder als saubere Tabelle
+        const metaY = titleY + 22;
         const metaItems = [
             { label: 'Kunde',   value: project.client || '—' },
             { label: 'Adresse', value: project.address || '—' },
             { label: 'Datum',   value: new Date(project.date).toLocaleDateString('de-CH') },
+            { label: 'Etagen',  value: String(project.floors.length) },
         ];
-        let my = blockY + 56;
+        let my = metaY;
         for (const it of metaItems) {
             doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(...MUTED);
-            doc.text(it.label.toUpperCase(), 32, my);
+            doc.text(it.label.toUpperCase(), margin, my, { charSpace: 0.6 });
             doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(...INK);
-            doc.text(it.value, 70, my);
-            my += 14;
+            doc.text(it.value, margin + 38, my);
+            my += 9;
         }
 
-        // KPI-Strip ganz unten über dem Coral-Streifen
+        // KPI-Strip in der Mitte — minimalistisch
         const total = this.getProjectSummary();
-        this._drawKpiRow(doc, pageH - 60, [
-            { label: 'Etagen',        value: String(project.floors.length), accent: 'white' },
-            { label: 'Gesamte Länge', value: `${formatNumber(total.totalLength)} ${total.unitLen}`, accent: 'white' },
-            { label: 'Gesamte Fläche',value: `${formatNumber(total.totalArea)} ${total.unitArea}`,  accent: 'white' },
-        ], pageW, { onDark: true });
+        this._drawKpiRow(doc, pageH / 2 + 10, [
+            { label: 'Gesamte Länge',  value: `${formatNumber(total.totalLength)} ${total.unitLen}`, accent: 'teal' },
+            { label: 'Gesamte Fläche', value: `${formatNumber(total.totalArea)} ${total.unitArea}`,  accent: 'coral' },
+            { label: 'Zählungen',      value: `${total.totalCount} Stk.`, accent: 'teal' },
+        ], pageW);
 
-        // Footer-Hinweis
+        // Footer
+        doc.setDrawColor(...LINE);
+        doc.setLineWidth(0.2);
+        doc.line(margin, pageH - 20, pageW - margin, pageH - 20);
+        doc.setFont('helvetica', 'normal');
         doc.setFontSize(8);
-        doc.setTextColor(255);
-        doc.text(`Erstellt mit ${BRAND.name} · ${new Date().toLocaleDateString('de-CH')}`,
-            cx, pageH - 4, { align: 'center' });
+        doc.setTextColor(...MUTED);
+        doc.text(`${BRAND.name} · ${BRAND.company}`, margin, pageH - 14);
+        doc.text(new Date().toLocaleDateString('de-CH'), pageW - margin, pageH - 14, { align: 'right' });
     }
 
-    _drawKpiRow(doc, y, items, pageW, opts = {}) {
-        const onDark = !!opts.onDark;
-        const margin = 20;
-        const gap = 8;
+    _drawKpiRow(doc, y, items, pageW) {
+        const margin = 24;
+        const gap = 6;
         const w = (pageW - margin * 2 - gap * (items.length - 1)) / items.length;
-        const h = 28;
+        const h = 26;
         items.forEach((item, i) => {
             const x = margin + i * (w + gap);
-            if (onDark) {
-                doc.setFillColor(255, 255, 255);
-                doc.setGState(new doc.GState({ opacity: 0.14 }));
-                doc.roundedRect(x, y, w, h, 3, 3, 'F');
-                doc.setGState(new doc.GState({ opacity: 1 }));
-                doc.setTextColor(...TEAL_LIGHT); doc.setFontSize(8); doc.setFont('helvetica', 'normal');
-                doc.text(item.label.toUpperCase(), x + 6, y + 10);
-                doc.setTextColor(255); doc.setFontSize(13); doc.setFont('helvetica', 'bold');
-                doc.text(item.value, x + 6, y + 22);
-            } else {
-                const accentRgb = item.accent === 'coral' ? CORAL : TEAL;
-                doc.setFillColor(...PAPER_SOFT);
-                doc.roundedRect(x, y, w, h, 2, 2, 'F');
-                doc.setFillColor(...accentRgb);
-                doc.rect(x, y, 2.5, h, 'F');
-                doc.setTextColor(...MUTED); doc.setFontSize(8); doc.setFont('helvetica', 'normal');
-                doc.text(item.label.toUpperCase(), x + 7, y + 10);
-                doc.setTextColor(...accentRgb); doc.setFontSize(13); doc.setFont('helvetica', 'bold');
-                doc.text(item.value, x + 7, y + 22);
-            }
+            const accentRgb = item.accent === 'coral' ? CORAL : TEAL;
+            // Nur Rahmen + dünner Akzent-Strich oben — kein Hintergrund
+            doc.setDrawColor(...LINE);
+            doc.setLineWidth(0.2);
+            doc.rect(x, y, w, h, 'S');
+            doc.setFillColor(...accentRgb);
+            doc.rect(x, y, w, 0.8, 'F');
+
+            doc.setTextColor(...MUTED); doc.setFontSize(8); doc.setFont('helvetica', 'normal');
+            doc.text(item.label.toUpperCase(), x + 5, y + 9, { charSpace: 0.5 });
+            doc.setTextColor(...INK); doc.setFontSize(13); doc.setFont('helvetica', 'bold');
+            doc.text(item.value, x + 5, y + 20);
         });
     }
 
     _drawHeader(doc, project, title, logoUrl) {
         const w = doc.internal.pageSize.getWidth();
-        doc.setFillColor(...TEAL);
-        doc.rect(0, 0, w, 22, 'F');
-        // Coral Akzent-Linie
-        doc.setFillColor(...CORAL);
-        doc.rect(0, 22, w, 1.4, 'F');
-
+        const margin = 14;
+        // Weisser Hintergrund (jsPDF default), nur dünne teal Linie unten
         if (logoUrl) {
-            try { doc.addImage(logoUrl, 'PNG', 14, 5, 36, 12); } catch {}
+            try { doc.addImage(logoUrl, 'PNG', margin, 8, 26, 26 * (84 / 308)); } catch {}
         }
 
-        doc.setTextColor(255);
-        doc.setFontSize(11);
         doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10);
+        doc.setTextColor(...INK);
         doc.text(title, w / 2, 14, { align: 'center' });
 
         doc.setFont('helvetica', 'normal');
-        doc.setFontSize(9);
-        doc.text(project.name || '—', w - 14, 14, { align: 'right' });
-        doc.setTextColor(0);
+        doc.setFontSize(8.5);
+        doc.setTextColor(...MUTED);
+        doc.text(project.name || '—', w - margin, 14, { align: 'right' });
+
+        doc.setDrawColor(...TEAL);
+        doc.setLineWidth(0.4);
+        doc.line(margin, 22, w - margin, 22);
     }
 
     _drawFooterAllPages(doc, project) {
@@ -524,8 +509,9 @@ export class ExportManager {
                     const img = new Image();
                     await new Promise(r => { img.onload = r; img.src = thumb; });
                     const maxW = 56; const h = img.height * (maxW / img.width);
-                    doc.setFillColor(220, 220, 220);
-                    doc.rect(pageW - 15 - maxW + 1, 28 + 1, maxW, h, 'F');
+                    doc.setDrawColor(...LINE);
+                    doc.setLineWidth(0.2);
+                    doc.rect(pageW - 15 - maxW, 28, maxW, h, 'S');
                     doc.addImage(thumb, 'PNG', pageW - 15 - maxW, 28, maxW, h);
                 }
             }
@@ -556,10 +542,9 @@ export class ExportManager {
             startY: 96,
             head: [['#', 'Typ', 'Bezeichnung', 'Ebene', 'Wert', 'Seite']],
             body: rows.length ? rows : [['—', '—', 'Keine Messungen', '—', '—', '—']],
-            theme: 'grid',
-            styles: { fontSize: 9, cellPadding: 2.6, lineColor: LINE, lineWidth: 0.1, textColor: INK },
-            headStyles: { fillColor: TEAL, textColor: 255, fontStyle: 'bold' },
-            alternateRowStyles: { fillColor: PAPER_SOFT },
+            theme: 'plain',
+            styles: { fontSize: 9, cellPadding: { top: 2.4, right: 3, bottom: 2.4, left: 3 }, lineColor: LINE, lineWidth: { bottom: 0.1 }, textColor: INK },
+            headStyles: { fillColor: false, textColor: TEAL, fontStyle: 'bold', fontSize: 9, lineColor: TEAL, lineWidth: { bottom: 0.4 } },
             columnStyles: {
                 0: { cellWidth: 10, halign: 'right', textColor: MUTED },
                 4: { fontStyle: 'bold' },
