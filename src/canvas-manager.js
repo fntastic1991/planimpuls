@@ -495,13 +495,15 @@ export class CanvasManager {
         const floor = this.store.getActiveFloor();
         if (!floor) return;
         const layer = this.store.project.activeLayerId;
+        const layerObj = this.store.getLayer(layer);
+        const color = (layerObj && layerObj.color) || this.currentColor;
         this.store.addMeasurement({
             id: `m-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
             type: 'text',
             points: [pos],
             value: 0,
             unit: '',
-            color: this.currentColor,
+            color,
             strokeWidth: this.currentStrokeWidth,
             name: txt,
             text: txt,
@@ -517,6 +519,8 @@ export class CanvasManager {
         const floor = this.store.getActiveFloor();
         if (!floor) return;
         const layer = this.store.project.activeLayerId;
+        const layerObj = this.store.getLayer(layer);
+        const color = (layerObj && layerObj.color) || this.currentColor;
 
         // Existierende aktive Count-Messung auf dieser Seite suchen, sonst neu
         let existing = floor.measurements.find(m => m.id === this._activeCountId);
@@ -527,7 +531,7 @@ export class CanvasManager {
                 points: [],
                 value: 0,
                 unit: 'Stk.',
-                color: this.currentColor,
+                color,
                 strokeWidth: this.currentStrokeWidth,
                 name: `Zählung ${floor.measurements.filter(m => m.type === 'count').length + 1}`,
                 pageIndex: floor.currentPageIndex,
@@ -555,6 +559,8 @@ export class CanvasManager {
         const sf = floor.scale.factor;
         const unit = floor.scale.unit;
         const layer = this.store.project.activeLayerId;
+        const layerObj = this.store.getLayer(layer);
+        const color = (layerObj && layerObj.color) || this.currentColor;
 
         const type = this.currentTool;
         const baseName = (() => {
@@ -574,7 +580,7 @@ export class CanvasManager {
             points: [...this.activePoints],
             value: 0,
             unit: type === 'area' || type === 'rectangle' || type === 'circle' ? `${unit}²` : unit,
-            color: this.currentColor,
+            color,
             strokeWidth: this.currentStrokeWidth,
             name: baseName,
             pageIndex: floor.currentPageIndex,
@@ -685,7 +691,9 @@ export class CanvasManager {
     }
 
     _drawMeasurement(m, selected, hovered) {
-        const color = m.color || '#386e79';
+        // Layer-Farbe gewinnt: alle Messungen einer Ebene haben dieselbe Farbe.
+        const layer = this.store.getLayer(m.layerId);
+        const color = (layer && layer.color) || m.color || '#386e79';
         const fill = this._hexToRgba(color, selected ? 0.3 : 0.18);
         const strokeW = (m.strokeWidth || 2) * (selected ? 1.5 : 1);
 
@@ -767,7 +775,8 @@ export class CanvasManager {
     }
 
     _drawActive(pts) {
-        const color = this.currentColor;
+        const layerObj = this.store.getLayer(this.store.project.activeLayerId);
+        const color = (layerObj && layerObj.color) || this.currentColor;
         const fill = this._hexToRgba(color, 0.2);
         this.ctx.strokeStyle = color;
         this.ctx.fillStyle = fill;

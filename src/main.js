@@ -238,7 +238,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const row = document.createElement('div');
             row.className = 'layer-row' + (l.id === active ? ' active' : '');
             row.innerHTML = `
-                <span class="layer-dot" style="background:${l.color}"></span>
+                <label class="layer-dot" style="background:${l.color}" title="Farbe der Ebene ändern">
+                    <input type="color" class="layer-color-input" value="${l.color}">
+                </label>
                 <span class="layer-name" title="Ebene aktivieren">${escapeHtml(l.name)}</span>
                 <button class="layer-vis ${l.visible ? '' : 'off'}" title="Sichtbar">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -252,10 +254,15 @@ document.addEventListener('DOMContentLoaded', () => {
             row.querySelector('.layer-name').addEventListener('click', () => {
                 store.setActiveLayer(l.id);
             });
-            row.querySelector('.layer-dot').addEventListener('click', () => {
-                const c = prompt('Farbe (HEX)', l.color);
-                if (c && /^#([0-9A-Fa-f]{6})$/.test(c)) store.updateLayer(l.id, { color: c });
+            row.querySelector('.layer-name').addEventListener('dblclick', () => {
+                const newName = prompt('Ebene umbenennen:', l.name);
+                if (newName && newName.trim()) store.updateLayer(l.id, { name: newName.trim() });
             });
+            const colorInput = row.querySelector('.layer-color-input');
+            colorInput.addEventListener('input', (e) => {
+                store.updateLayer(l.id, { color: e.target.value });
+            });
+            colorInput.addEventListener('click', (e) => e.stopPropagation());
             row.querySelector('.layer-vis').addEventListener('click', (e) => {
                 e.stopPropagation();
                 store.updateLayer(l.id, { visible: !l.visible });
@@ -293,9 +300,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const tr = document.createElement('tr');
             if (m.id === canvasManager.selectedId) tr.classList.add('selected');
             const layer = layerMap[m.layerId];
+            const dotColor = (layer && layer.color) || m.color || '#386e79';
             const valueStr = m.type === 'text' ? '—' : `${formatNumber(m.value)} ${m.unit}`;
             tr.innerHTML = `
-                <td><span class="color-dot" style="background:${m.color}"></span></td>
+                <td><span class="color-dot" style="background:${dotColor}"></span></td>
                 <td>${typeLabels[m.type] || m.type}</td>
                 <td><input type="text" class="table-input" value="${escapeAttr(m.name)}" data-id="${m.id}"></td>
                 <td><strong>${valueStr}</strong></td>
@@ -361,7 +369,8 @@ document.addEventListener('DOMContentLoaded', () => {
             rectangle: 'Rechteck', circle: 'Kreis', count: 'Zählung', text: 'Notiz',
         })[m.type] || m.type;
         ui.propValue.value = m.type === 'text' ? '—' : `${formatNumber(m.value)} ${m.unit}`;
-        ui.propColor.value = m.color || '#386e79';
+        const layerForColor = store.getLayer(m.layerId);
+        ui.propColor.value = (layerForColor && layerForColor.color) || m.color || '#386e79';
         ui.propLayer.value = m.layerId;
         ui.propWidth.value = String(m.strokeWidth || 2);
     }
@@ -372,7 +381,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     ui.propColor.addEventListener('input', () => {
         if (!canvasManager.selectedId) return;
-        store.updateMeasurement(canvasManager.selectedId, { color: ui.propColor.value });
+        const m = getActiveFloor()?.measurements.find(x => x.id === canvasManager.selectedId);
+        if (!m) return;
+        // Farbe einer Ebene = Farbe aller Messungen darin: Layer-Farbe ändern.
+        if (m.layerId) store.updateLayer(m.layerId, { color: ui.propColor.value });
     });
     ui.propLayer.addEventListener('change', () => {
         if (!canvasManager.selectedId) return;
@@ -484,6 +496,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (event === 'layers:changed' || event === 'layer:activated') {
             renderLayers();
+            renderTable();
             canvasManager.redraw();
         }
     });
@@ -705,13 +718,23 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Layers
+    const LAYER_PALETTE = [
+        '#386e79', '#c65145', '#10b981', '#f59e0b',
+        '#6366f1', '#ec4899', '#8b5cf6', '#0ea5e9',
+        '#84cc16', '#f43f5e', '#14b8a6', '#a855f7',
+    ];
+    function nextLayerColor() {
+        const used = new Set(store.project.layers.map(l => (l.color || '').toLowerCase()));
+        const free = LAYER_PALETTE.find(c => !used.has(c.toLowerCase()));
+        return free || LAYER_PALETTE[store.project.layers.length % LAYER_PALETTE.length];
+    }
     ui.btnAddLayer.addEventListener('click', () => {
         const name = prompt('Name der neuen Ebene:');
         if (!name) return;
         store.addLayer({
             id: `layer-${Date.now()}`,
             name,
-            color: ui.colorInput.value,
+            color: nextLayerColor(),
             visible: true,
             locked: false,
         });

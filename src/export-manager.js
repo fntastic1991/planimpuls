@@ -235,15 +235,19 @@ export class ExportManager {
         const internalScale = this.pdfLoader.renderScale;
         const scaleToExport = scale / internalScale;
 
+        const layerMap = Object.fromEntries(this.store.project.layers.map(l => [l.id, l]));
         const pageMs = floor.measurements.filter(m => m.pageIndex === pageNum);
         for (const m of pageMs) {
-            this._drawMeasurementOnCtx(ctx, m, scaleToExport);
+            const layer = layerMap[m.layerId];
+            if (layer && !layer.visible) continue;
+            const color = (layer && layer.color) || m.color || '#386e79';
+            this._drawMeasurementOnCtx(ctx, m, scaleToExport, color);
         }
         return c.toDataURL('image/png');
     }
 
-    _drawMeasurementOnCtx(ctx, m, sc) {
-        const color = m.color || '#386e79';
+    _drawMeasurementOnCtx(ctx, m, sc, overrideColor = null) {
+        const color = overrideColor || m.color || '#386e79';
         ctx.strokeStyle = color;
         ctx.lineWidth = (m.strokeWidth || 2) * 1.2;
         ctx.fillStyle = this._hexToRgba(color, 0.22);
