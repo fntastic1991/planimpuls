@@ -212,7 +212,7 @@ export class ExportManager {
                 // Footer
                 doc.setFontSize(8);
                 doc.setTextColor(...MUTED);
-                doc.text(`plan.impuls  •  ${new Date().toLocaleDateString('de-CH')}`, 18, pageH - 10);
+                doc.text(`${BRAND.name} · ${BRAND.company}  •  ${new Date().toLocaleDateString('de-CH')}`, 18, pageH - 10);
             }
         }
 
@@ -362,12 +362,16 @@ export class ExportManager {
             doc.text('impuls', cx + 4, 60, { align: 'left' });
         }
 
-        // Titel
+        // Firmenname
         doc.setTextColor(255);
-        doc.setFontSize(11);
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'bold');
+        doc.text(BRAND.company, cx, 80, { align: 'center', charSpace: 0.6 });
+
+        // Tagline
+        doc.setFontSize(10);
         doc.setFont('helvetica', 'normal');
-        const tagline = 'Mengenermittlung & Plan-Annotation';
-        doc.text(tagline, cx, 85, { align: 'center' });
+        doc.text(BRAND.tagline, cx, 89, { align: 'center' });
 
         // Großer Projekt-Block in der Mitte
         const blockY = 130;
@@ -485,7 +489,7 @@ export class ExportManager {
             doc.line(15, h - 12, w - 15, h - 12);
             doc.setFontSize(8);
             doc.setTextColor(...MUTED);
-            doc.text(`${BRAND.name}  •  ${project.name || '—'}`, 15, h - 6);
+            doc.text(`${BRAND.name} · ${BRAND.company}  •  ${project.name || '—'}`, 15, h - 6);
             doc.text(`Seite ${i} / ${count}`, w - 15, h - 6, { align: 'right' });
         }
     }

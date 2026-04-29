@@ -2,6 +2,7 @@
 
 export const BRAND = {
     name: 'plan.impuls',
+    company: 'Farbimpuls GmbH',
     tagline: 'Mengenermittlung & Plan-Annotation',
     colors: {
         teal: '#386e79',
