@@ -1,7 +1,7 @@
 {
-  "name": "planimpuls-pdf-measure",
-  "version": "1.0.0",
-  "description": "Simple PDF measurement tool",
+  "name": "plan-impuls",
+  "version": "1.1.0",
+  "description": "plan.impuls — Mengenermittlung & Plan-Annotation",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

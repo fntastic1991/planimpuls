@@ -2,8 +2,8 @@
 // Inspiriert von Bluebeam: strukturierte Projekte mit mehreren Etagen.
 
 export const DEFAULT_LAYERS = [
-    { id: 'layer-default', name: 'Allgemein', color: '#3b82f6', visible: true, locked: false },
-    { id: 'layer-walls',   name: 'Wände',      color: '#ef4444', visible: true, locked: false },
+    { id: 'layer-default', name: 'Allgemein', color: '#386e79', visible: true, locked: false },
+    { id: 'layer-walls',   name: 'Wände',      color: '#c65145', visible: true, locked: false },
     { id: 'layer-floor',   name: 'Bodenflächen', color: '#10b981', visible: true, locked: false },
     { id: 'layer-electro', name: 'Elektro',    color: '#f59e0b', visible: true, locked: false },
 ];

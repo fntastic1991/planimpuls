@@ -1,5 +1,5 @@
 /* =========================================================
-   PlanImpuls Pro - Bluebeam-inspiriertes Desktop-Layout
+   plan.impuls — Bluebeam-inspiriertes Desktop-Layout
    ========================================================= */
 
 :root {
@@ -11,9 +11,15 @@
     --text: #1e293b;
     --text-2: #475569;
     --text-muted: #64748b;
-    --primary: #2563eb;
-    --primary-hover: #1d4ed8;
-    --primary-light: #eff6ff;
+
+    /* Brand colors — extracted from office.impuls logo */
+    --primary: #386e79;
+    --primary-hover: #264e57;
+    --primary-light: #e8eef0;
+    --accent: #c65145;
+    --accent-hover: #a23a30;
+    --accent-light: #fbeceb;
+
     --danger: #ef4444;
     --success: #10b981;
     --warning: #f59e0b;
@@ -57,21 +63,30 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 /* ================= Titlebar ================= */
 .titlebar {
     height: var(--titlebar-h);
-    background: linear-gradient(180deg, #1e293b, #0f172a);
-    color: #f1f5f9;
+    background: linear-gradient(180deg, #ffffff, #f7f8f9);
+    color: var(--text);
+    border-bottom: 1px solid var(--border);
     display: flex;
     align-items: center;
-    padding: 0 12px;
+    padding: 0 14px;
     gap: 18px;
     z-index: 100;
     user-select: none;
 }
 
 .tb-brand { display: flex; align-items: center; gap: 10px; }
-.brand-logo { height: 24px; width: 24px; border-radius: 5px; object-fit: cover; }
-.brand-text { display: flex; flex-direction: column; line-height: 1.15; }
-.brand-text strong { font-size: 13px; font-weight: 700; }
-.project-name-label { font-size: 11px; color: #cbd5e1; }
+.brand-logo { height: 22px; width: auto; object-fit: contain; }
+.brand-text { display: flex; flex-direction: column; line-height: 1.1; }
+.brand-wordmark {
+    font-size: 16px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    font-family: 'Inter', sans-serif;
+}
+.bw-teal { color: var(--primary); }
+.bw-coral { color: var(--accent); }
+.bw-dot { color: var(--accent); }
+.project-name-label { font-size: 11px; color: var(--text-muted); font-weight: 500; }
 
 .tb-menu { display: flex; gap: 2px; margin-left: 10px; }
 .menu-item {
@@ -79,18 +94,19 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
     font-size: 12.5px;
     border-radius: 4px;
     cursor: pointer;
-    transition: background 0.15s;
+    color: var(--text-2);
+    transition: background 0.15s, color 0.15s;
 }
-.menu-item:hover { background: rgba(255, 255, 255, 0.08); }
+.menu-item:hover { background: var(--primary-light); color: var(--primary); }
 
 .tb-right { margin-left: auto; display: flex; gap: 6px; }
 .tb-btn {
     padding: 6px;
     border-radius: 4px;
-    color: #cbd5e1;
+    color: var(--text-2);
     display: flex; align-items: center; justify-content: center;
 }
-.tb-btn:hover { background: rgba(255, 255, 255, 0.1); color: white; }
+.tb-btn:hover { background: var(--primary-light); color: var(--primary); }
 
 /* ================= Ribbon ================= */
 .ribbon {
@@ -161,7 +177,7 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
     background: var(--primary);
     color: white;
     border-color: var(--primary-hover);
-    box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
+    box-shadow: 0 2px 6px rgba(56, 110, 121, 0.3);
 }
 .tb-label { white-space: nowrap; }
 

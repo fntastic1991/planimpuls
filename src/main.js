@@ -127,7 +127,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updateProjectNameLabel() {
         ui.projectNameLabel.textContent = store.project.name;
-        document.title = `${store.project.name} — PlanImpuls Pro`;
+        document.title = `${store.project.name} — plan.impuls`;
     }
 
     // ====== Project Tree ======
@@ -361,7 +361,7 @@ document.addEventListener('DOMContentLoaded', () => {
             rectangle: 'Rechteck', circle: 'Kreis', count: 'Zählung', text: 'Notiz',
         })[m.type] || m.type;
         ui.propValue.value = m.type === 'text' ? '—' : `${formatNumber(m.value)} ${m.unit}`;
-        ui.propColor.value = m.color || '#3b82f6';
+        ui.propColor.value = m.color || '#386e79';
         ui.propLayer.value = m.layerId;
         ui.propWidth.value = String(m.strokeWidth || 2);
     }

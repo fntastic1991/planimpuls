@@ -42,7 +42,7 @@ export class CanvasManager {
         this.hoverId = null;
 
         // Appearance
-        this.currentColor = '#3b82f6';
+        this.currentColor = '#386e79';
         this.currentStrokeWidth = 2;
         this.currentFont = 'bold 13px Inter, sans-serif';
 
@@ -682,7 +682,7 @@ export class CanvasManager {
     }
 
     _drawMeasurement(m, selected, hovered) {
-        const color = m.color || '#3b82f6';
+        const color = m.color || '#386e79';
         const fill = this._hexToRgba(color, selected ? 0.3 : 0.18);
         const strokeW = (m.strokeWidth || 2) * (selected ? 1.5 : 1);
 

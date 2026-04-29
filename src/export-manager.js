@@ -1,16 +1,45 @@
-// Umfangreiches Export: PDF-Bericht (Deckblatt, Etagen, Tabellen) +
-// Annotierter Plan-PDF (jede Seite als Bild + Messungen-Overlay) + CSV.
+// Export-Pipeline: Bericht-PDF, annotierter Plan-PDF, CSV.
+// Optisch deutlich aufgewertet im plan.impuls-Branding (Teal + Coral).
 
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import {
     formatNumber, rectangleBounds, calculateDistance,
 } from './geometry.js';
+import { BRAND, brandRgb, loadLogo } from './brand.js';
+
+const TEAL = brandRgb('teal');
+const TEAL_DARK = brandRgb('tealDark');
+const TEAL_LIGHT = brandRgb('tealLight');
+const CORAL = brandRgb('coral');
+const CORAL_LIGHT = brandRgb('coralLight');
+const INK = brandRgb('ink');
+const MUTED = brandRgb('muted');
+const LINE = brandRgb('line');
+const PAPER_SOFT = brandRgb('paperSoft');
 
 export class ExportManager {
     constructor(store, pdfLoader) {
         this.store = store;
         this.pdfLoader = pdfLoader;
+        this._logoDataUrl = null;
+    }
+
+    // Logo asynchron als DataURL bereitstellen — jsPDF mag DataURL stabil.
+    async _getLogoDataUrl() {
+        if (this._logoDataUrl) return this._logoDataUrl;
+        try {
+            const img = await loadLogo();
+            const c = document.createElement('canvas');
+            c.width = img.naturalWidth || img.width;
+            c.height = img.naturalHeight || img.height;
+            c.getContext('2d').drawImage(img, 0, 0);
+            this._logoDataUrl = c.toDataURL('image/png');
+            return this._logoDataUrl;
+        } catch (e) {
+            console.warn('Logo konnte nicht geladen werden:', e);
+            return null;
+        }
     }
 
     // --- Summary je Etage ---
@@ -31,7 +60,6 @@ export class ExportManager {
         return s;
     }
 
-    // --- Gesamtprojekt-Summary ---
     getProjectSummary() {
         const p = this.store.project;
         const total = { totalLength: 0, totalArea: 0, totalCount: 0, unitLen: 'm', unitArea: 'm²' };
@@ -54,46 +82,53 @@ export class ExportManager {
     }
 
     // =====================================================
-    // 1) BERICHT (strukturiert, Corporate-Look)
+    // 1) BERICHT
     // =====================================================
     async exportReport(filename = null) {
         const project = this.store.project;
         const doc = new jsPDF({ unit: 'mm', format: 'a4' });
         const pageW = doc.internal.pageSize.getWidth();
         const pageH = doc.internal.pageSize.getHeight();
+        const logoUrl = await this._getLogoDataUrl();
 
-        this._drawCover(doc, project, pageW, pageH);
+        this._drawCover(doc, project, pageW, pageH, logoUrl);
 
         // Projekt-Übersicht
         doc.addPage();
-        this._drawHeader(doc, project, 'Projekt-Übersicht');
+        this._drawHeader(doc, project, 'Projekt-Übersicht', logoUrl);
         const projSum = this.getProjectSummary();
 
         autoTable(doc, {
-            startY: 40,
+            startY: 38,
             theme: 'plain',
-            styles: { fontSize: 11, cellPadding: 3 },
+            styles: { fontSize: 10.5, cellPadding: { top: 3, right: 4, bottom: 3, left: 0 } },
             body: [
                 ['Projekt', project.name || '—'],
                 ['Kunde', project.client || '—'],
                 ['Adresse', project.address || '—'],
                 ['Datum', new Date(project.date).toLocaleDateString('de-CH')],
                 ['Anzahl Etagen', String(project.floors.length)],
-                ['Gesamte Länge', `${formatNumber(projSum.totalLength)} ${projSum.unitLen}`],
-                ['Gesamte Fläche', `${formatNumber(projSum.totalArea)} ${projSum.unitArea}`],
-                ['Gesamte Zählungen', `${projSum.totalCount} Stk.`],
             ],
             columnStyles: {
-                0: { fontStyle: 'bold', cellWidth: 50, textColor: [60, 60, 60] },
-                1: { textColor: [30, 30, 30] },
+                0: { fontStyle: 'bold', cellWidth: 42, textColor: MUTED },
+                1: { textColor: INK },
             },
         });
 
-        // Übersicht-Tabelle aller Etagen
+        // KPI-Boxen
+        const kpiY = doc.lastAutoTable.finalY + 8;
+        this._drawKpiRow(doc, kpiY, [
+            { label: 'Gesamte Länge',   value: `${formatNumber(projSum.totalLength)} ${projSum.unitLen}`, accent: 'teal' },
+            { label: 'Gesamte Fläche',  value: `${formatNumber(projSum.totalArea)} ${projSum.unitArea}`,  accent: 'coral' },
+            { label: 'Zählungen',       value: `${projSum.totalCount} Stk.`, accent: 'teal' },
+        ], pageW);
+
+        // Übersicht alle Etagen
         const floorRows = project.floors.map((f, i) => {
             const s = this.getFloorSummary(f);
+            const scaleStr = f.scale.ratio ? `1:${f.scale.ratio}` : (f.scale.calibrated ? 'manuell' : '—');
             return [
-                String(i + 1), f.name,
+                String(i + 1), f.name, scaleStr,
                 `${formatNumber(s.totalLength)} ${s.unitLen}`,
                 `${formatNumber(s.totalArea)} ${s.unitArea}`,
                 String(s.totalCount),
@@ -102,18 +137,20 @@ export class ExportManager {
         });
         if (floorRows.length) {
             autoTable(doc, {
-                startY: doc.lastAutoTable.finalY + 10,
-                head: [['#', 'Etage', 'Länge', 'Fläche', 'Stk.', 'Messungen']],
+                startY: kpiY + 32,
+                head: [['#', 'Etage', 'Massstab', 'Länge', 'Fläche', 'Stk.', 'Messungen']],
                 body: floorRows,
                 theme: 'striped',
-                headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: 'bold' },
-                styles: { fontSize: 10, cellPadding: 3 },
+                headStyles: { fillColor: TEAL, textColor: 255, fontStyle: 'bold', fontSize: 9.5 },
+                bodyStyles: { fontSize: 9.5, textColor: INK, cellPadding: 2.6 },
+                alternateRowStyles: { fillColor: PAPER_SOFT },
+                styles: { lineColor: LINE, lineWidth: 0.1 },
             });
         }
 
         // Detail pro Etage
         for (const floor of project.floors) {
-            await this._drawFloorDetail(doc, floor, project);
+            await this._drawFloorDetail(doc, floor, project, logoUrl);
         }
 
         this._drawFooterAllPages(doc, project);
@@ -121,11 +158,12 @@ export class ExportManager {
     }
 
     // =====================================================
-    // 2) ANNOTIERTER PLAN (PDF mit Messungen-Overlay)
+    // 2) ANNOTIERTE PLÄNE
     // =====================================================
     async exportAnnotatedPlans(filename = null) {
         const project = this.store.project;
         const doc = new jsPDF({ unit: 'pt', format: 'a4', orientation: 'landscape' });
+        const logoUrl = await this._getLogoDataUrl();
         let isFirst = true;
         let anyPage = false;
 
@@ -142,21 +180,39 @@ export class ExportManager {
                 isFirst = false;
                 anyPage = true;
 
-                // Bild in Seite einpassen
                 const pageW = doc.internal.pageSize.getWidth();
                 const pageH = doc.internal.pageSize.getHeight();
+
+                // Header-Streifen
+                doc.setFillColor(...TEAL);
+                doc.rect(0, 0, pageW, 28, 'F');
+                if (logoUrl) {
+                    try { doc.addImage(logoUrl, 'PNG', pageW - 96, 6, 80, 16); } catch {}
+                }
+                doc.setTextColor(255);
+                doc.setFontSize(11);
+                doc.setFont('helvetica', 'bold');
+                doc.text(project.name || 'plan.impuls', 18, 13);
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(9);
+                doc.text(`${floor.name}  •  Seite ${p}/${entry.pageCount}`, 18, 22);
+
                 const img = new Image();
                 await new Promise(res => { img.onload = res; img.src = dataUrl; });
-                const ratio = Math.min(pageW / img.width, pageH / img.height) * 0.95;
+                const availH = pageH - 38;
+                const ratio = Math.min(pageW / img.width, availH / img.height) * 0.95;
                 const w = img.width * ratio, h = img.height * ratio;
-                const x = (pageW - w) / 2, y = (pageH - h) / 2;
+                const x = (pageW - w) / 2, y = 32 + (availH - h) / 2;
 
-                // Header
-                doc.setFontSize(10);
-                doc.setTextColor(100);
-                doc.text(`${project.name || 'PlanImpuls'}  •  ${floor.name}  •  Seite ${p}/${entry.pageCount}`, 20, 20);
-
+                // Schatten unter dem Plan
+                doc.setFillColor(220, 220, 220);
+                doc.rect(x + 3, y + 3, w, h, 'F');
                 doc.addImage(dataUrl, 'PNG', x, y, w, h);
+
+                // Footer
+                doc.setFontSize(8);
+                doc.setTextColor(...MUTED);
+                doc.text(`plan.impuls  •  ${new Date().toLocaleDateString('de-CH')}`, 18, pageH - 10);
             }
         }
 
@@ -166,7 +222,6 @@ export class ExportManager {
         doc.save(filename || `${this._sanitize(project.name)}_Plaene_annotiert.pdf`);
     }
 
-    // --- Render PDF-Seite + Messungen in Canvas ---
     async _renderPageWithOverlay(floor, pageNum, scale = 2.0) {
         const entry = this.pdfLoader.pdfCache.get(floor.id);
         if (!entry) return null;
@@ -177,19 +232,18 @@ export class ExportManager {
         const ctx = c.getContext('2d');
         await page.render({ canvasContext: ctx, viewport }).promise;
 
-        // Skalierungs-Faktor zu internem Render (Canvas lief mit pdfLoader.renderScale)
         const internalScale = this.pdfLoader.renderScale;
         const scaleToExport = scale / internalScale;
 
         const pageMs = floor.measurements.filter(m => m.pageIndex === pageNum);
         for (const m of pageMs) {
-            this._drawMeasurementOnCtx(ctx, m, scaleToExport, floor);
+            this._drawMeasurementOnCtx(ctx, m, scaleToExport);
         }
         return c.toDataURL('image/png');
     }
 
-    _drawMeasurementOnCtx(ctx, m, sc, floor) {
-        const color = m.color || '#3b82f6';
+    _drawMeasurementOnCtx(ctx, m, sc) {
+        const color = m.color || '#386e79';
         ctx.strokeStyle = color;
         ctx.lineWidth = (m.strokeWidth || 2) * 1.2;
         ctx.fillStyle = this._hexToRgba(color, 0.22);
@@ -272,71 +326,146 @@ export class ExportManager {
         }
     }
 
-    // --- Berichts-Bausteine ---
-    _drawCover(doc, project, pageW, pageH) {
-        // Kopf-Farbstreifen
-        doc.setFillColor(37, 99, 235);
-        doc.rect(0, 0, pageW, 70, 'F');
+    // =====================================================
+    // Berichts-Bausteine
+    // =====================================================
+    _drawCover(doc, project, pageW, pageH, logoUrl) {
+        // Hintergrund teal
+        doc.setFillColor(...TEAL);
+        doc.rect(0, 0, pageW, pageH, 'F');
 
+        // Coral Akzent-Streifen unten
+        doc.setFillColor(...CORAL);
+        doc.rect(0, pageH - 14, pageW, 14, 'F');
+
+        // Großes Wordmark
+        const cx = pageW / 2;
+        if (logoUrl) {
+            // Logo zentral oben — das Logo ist 308x84, Aspect ~3.67
+            const lw = 80, lh = lw * (84 / 308);
+            try {
+                doc.addImage(logoUrl, 'PNG', cx - lw / 2, 38, lw, lh);
+            } catch {}
+        } else {
+            // Fallback-Wordmark direkt gezeichnet
+            doc.setFontSize(40);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(255);
+            doc.text('plan', cx - 20, 60, { align: 'right' });
+            doc.setTextColor(...CORAL_LIGHT);
+            doc.text('.', cx - 20, 60, { align: 'left' });
+            doc.setTextColor(255);
+            doc.text('impuls', cx + 4, 60, { align: 'left' });
+        }
+
+        // Titel
         doc.setTextColor(255);
-        doc.setFontSize(28);
-        doc.setFont('helvetica', 'bold');
-        doc.text('Mengenermittlung', 20, 40);
-        doc.setFontSize(13);
-        doc.setFont('helvetica', 'normal');
-        doc.text('PlanImpuls Pro — Bericht', 20, 55);
-
-        doc.setTextColor(30, 30, 30);
-        doc.setFontSize(22);
-        doc.setFont('helvetica', 'bold');
-        doc.text(project.name || 'Unbenanntes Projekt', 20, 100);
-
         doc.setFontSize(11);
         doc.setFont('helvetica', 'normal');
-        doc.setTextColor(80);
-        doc.text(`Kunde: ${project.client || '—'}`, 20, 115);
-        doc.text(`Adresse: ${project.address || '—'}`, 20, 125);
-        doc.text(`Datum: ${new Date(project.date).toLocaleDateString('de-CH')}`, 20, 135);
+        const tagline = 'Mengenermittlung & Plan-Annotation';
+        doc.text(tagline, cx, 85, { align: 'center' });
 
-        const total = this.getProjectSummary();
-        doc.setDrawColor(220);
-        doc.line(20, 150, pageW - 20, 150);
+        // Großer Projekt-Block in der Mitte
+        const blockY = 130;
+        doc.setFillColor(255);
+        doc.roundedRect(20, blockY, pageW - 40, 110, 4, 4, 'F');
 
-        doc.setFontSize(14);
-        doc.setFont('helvetica', 'bold');
-        doc.text('Auf einen Blick', 20, 165);
-
-        const boxW = (pageW - 60) / 3, boxH = 40, y = 175;
-        const boxes = [
-            { label: 'Gesamte Länge', value: `${formatNumber(total.totalLength)} ${total.unitLen}` },
-            { label: 'Gesamte Fläche', value: `${formatNumber(total.totalArea)} ${total.unitArea}` },
-            { label: 'Etagen', value: String(project.floors.length) },
-        ];
-        boxes.forEach((b, i) => {
-            const x = 20 + i * (boxW + 10);
-            doc.setFillColor(245, 247, 250);
-            doc.roundedRect(x, y, boxW, boxH, 3, 3, 'F');
-            doc.setFontSize(9); doc.setTextColor(100); doc.setFont('helvetica', 'normal');
-            doc.text(b.label, x + 6, y + 12);
-            doc.setFontSize(16); doc.setTextColor(37, 99, 235); doc.setFont('helvetica', 'bold');
-            doc.text(b.value, x + 6, y + 28);
-        });
-
+        doc.setTextColor(...MUTED);
+        doc.setFont('helvetica', 'normal');
         doc.setFontSize(9);
-        doc.setTextColor(120);
-        doc.text(`Erstellt mit PlanImpuls · ${new Date().toLocaleDateString('de-CH')}`, 20, pageH - 15);
+        doc.text('PROJEKT', 32, blockY + 16);
+
+        doc.setTextColor(...INK);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(24);
+        doc.text(project.name || 'Unbenanntes Projekt', 32, blockY + 32);
+
+        // Linie
+        doc.setDrawColor(...LINE);
+        doc.setLineWidth(0.4);
+        doc.line(32, blockY + 42, pageW - 32, blockY + 42);
+
+        // Meta-Felder
+        const metaItems = [
+            { label: 'Kunde',   value: project.client || '—' },
+            { label: 'Adresse', value: project.address || '—' },
+            { label: 'Datum',   value: new Date(project.date).toLocaleDateString('de-CH') },
+        ];
+        let my = blockY + 56;
+        for (const it of metaItems) {
+            doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(...MUTED);
+            doc.text(it.label.toUpperCase(), 32, my);
+            doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(...INK);
+            doc.text(it.value, 70, my);
+            my += 14;
+        }
+
+        // KPI-Strip ganz unten über dem Coral-Streifen
+        const total = this.getProjectSummary();
+        this._drawKpiRow(doc, pageH - 60, [
+            { label: 'Etagen',        value: String(project.floors.length), accent: 'white' },
+            { label: 'Gesamte Länge', value: `${formatNumber(total.totalLength)} ${total.unitLen}`, accent: 'white' },
+            { label: 'Gesamte Fläche',value: `${formatNumber(total.totalArea)} ${total.unitArea}`,  accent: 'white' },
+        ], pageW, { onDark: true });
+
+        // Footer-Hinweis
+        doc.setFontSize(8);
+        doc.setTextColor(255);
+        doc.text(`Erstellt mit ${BRAND.name} · ${new Date().toLocaleDateString('de-CH')}`,
+            cx, pageH - 4, { align: 'center' });
     }
 
-    _drawHeader(doc, project, title) {
-        doc.setFillColor(37, 99, 235);
-        doc.rect(0, 0, doc.internal.pageSize.getWidth(), 20, 'F');
+    _drawKpiRow(doc, y, items, pageW, opts = {}) {
+        const onDark = !!opts.onDark;
+        const margin = 20;
+        const gap = 8;
+        const w = (pageW - margin * 2 - gap * (items.length - 1)) / items.length;
+        const h = 28;
+        items.forEach((item, i) => {
+            const x = margin + i * (w + gap);
+            if (onDark) {
+                doc.setFillColor(255, 255, 255);
+                doc.setGState(new doc.GState({ opacity: 0.14 }));
+                doc.roundedRect(x, y, w, h, 3, 3, 'F');
+                doc.setGState(new doc.GState({ opacity: 1 }));
+                doc.setTextColor(...TEAL_LIGHT); doc.setFontSize(8); doc.setFont('helvetica', 'normal');
+                doc.text(item.label.toUpperCase(), x + 6, y + 10);
+                doc.setTextColor(255); doc.setFontSize(13); doc.setFont('helvetica', 'bold');
+                doc.text(item.value, x + 6, y + 22);
+            } else {
+                const accentRgb = item.accent === 'coral' ? CORAL : TEAL;
+                doc.setFillColor(...PAPER_SOFT);
+                doc.roundedRect(x, y, w, h, 2, 2, 'F');
+                doc.setFillColor(...accentRgb);
+                doc.rect(x, y, 2.5, h, 'F');
+                doc.setTextColor(...MUTED); doc.setFontSize(8); doc.setFont('helvetica', 'normal');
+                doc.text(item.label.toUpperCase(), x + 7, y + 10);
+                doc.setTextColor(...accentRgb); doc.setFontSize(13); doc.setFont('helvetica', 'bold');
+                doc.text(item.value, x + 7, y + 22);
+            }
+        });
+    }
+
+    _drawHeader(doc, project, title, logoUrl) {
+        const w = doc.internal.pageSize.getWidth();
+        doc.setFillColor(...TEAL);
+        doc.rect(0, 0, w, 22, 'F');
+        // Coral Akzent-Linie
+        doc.setFillColor(...CORAL);
+        doc.rect(0, 22, w, 1.4, 'F');
+
+        if (logoUrl) {
+            try { doc.addImage(logoUrl, 'PNG', 14, 5, 36, 12); } catch {}
+        }
+
         doc.setTextColor(255);
         doc.setFontSize(11);
         doc.setFont('helvetica', 'bold');
-        doc.text(title, 15, 13);
+        doc.text(title, w / 2, 14, { align: 'center' });
+
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(9);
-        doc.text(project.name || '—', doc.internal.pageSize.getWidth() - 15, 13, { align: 'right' });
+        doc.text(project.name || '—', w - 14, 14, { align: 'right' });
         doc.setTextColor(0);
     }
 
@@ -346,61 +475,66 @@ export class ExportManager {
             doc.setPage(i);
             const w = doc.internal.pageSize.getWidth();
             const h = doc.internal.pageSize.getHeight();
+            // dünne Linie über Footer
+            doc.setDrawColor(...LINE);
+            doc.setLineWidth(0.2);
+            doc.line(15, h - 12, w - 15, h - 12);
             doc.setFontSize(8);
-            doc.setTextColor(150);
-            doc.text(`${project.name || 'PlanImpuls'}`, 15, h - 8);
-            doc.text(`Seite ${i} / ${count}`, w - 15, h - 8, { align: 'right' });
+            doc.setTextColor(...MUTED);
+            doc.text(`${BRAND.name}  •  ${project.name || '—'}`, 15, h - 6);
+            doc.text(`Seite ${i} / ${count}`, w - 15, h - 6, { align: 'right' });
         }
     }
 
-    async _drawFloorDetail(doc, floor, project) {
+    async _drawFloorDetail(doc, floor, project, logoUrl) {
         doc.addPage();
-        this._drawHeader(doc, project, `Etage: ${floor.name}`);
+        this._drawHeader(doc, project, `Etage: ${floor.name}`, logoUrl);
 
         const s = this.getFloorSummary(floor);
-        doc.setFontSize(14); doc.setFont('helvetica', 'bold'); doc.setTextColor(20);
-        doc.text(floor.name, 15, 32);
-        doc.setFontSize(10); doc.setFont('helvetica', 'normal'); doc.setTextColor(100);
-        const scaleText = floor.scale.ratio
-            ? `Massstab 1:${floor.scale.ratio} (${floor.scale.unit})`
-            : (floor.scale.calibrated ? `Kalibriert (${floor.scale.unit})` : 'Nicht kalibriert');
-        doc.text(`${scaleText}  •  ${floor.pdfFileName || 'Kein PDF'}`, 15, 39);
+        const pageW = doc.internal.pageSize.getWidth();
 
-        // Thumbnail der ersten Seite
+        // Etagen-Titel + Massstab-Info
+        doc.setFontSize(16);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(...INK);
+        doc.text(floor.name, 15, 36);
+
+        doc.setFontSize(9.5);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(...MUTED);
+        const scaleText = floor.scale.ratio
+            ? `Massstab 1:${floor.scale.ratio}`
+            : (floor.scale.calibrated ? 'manuell kalibriert' : 'nicht kalibriert');
+        doc.text(`${scaleText}  •  ${floor.pdfFileName || 'Kein PDF'}  •  ${floor.measurements.length} Messung(en)`,
+            15, 42);
+
+        // Thumbnail rechts
         try {
             if (this.pdfLoader.hasPdf(floor.id)) {
                 const thumb = await this.pdfLoader.renderThumbnail(floor.id, 1, 400);
                 if (thumb) {
                     const img = new Image();
                     await new Promise(r => { img.onload = r; img.src = thumb; });
-                    const maxW = 70; const h = img.height * (maxW / img.width);
-                    doc.addImage(thumb, 'PNG', doc.internal.pageSize.getWidth() - 15 - maxW, 27, maxW, h);
+                    const maxW = 56; const h = img.height * (maxW / img.width);
+                    doc.setFillColor(220, 220, 220);
+                    doc.rect(pageW - 15 - maxW + 1, 28 + 1, maxW, h, 'F');
+                    doc.addImage(thumb, 'PNG', pageW - 15 - maxW, 28, maxW, h);
                 }
             }
         } catch {}
 
-        // Summary-Boxen
-        const y = 50;
-        const w = (doc.internal.pageSize.getWidth() - 30 - 30) / 4;
-        const boxes = [
-            { label: 'Länge', value: `${formatNumber(s.totalLength)} ${s.unitLen}` },
-            { label: 'Fläche', value: `${formatNumber(s.totalArea)} ${s.unitArea}` },
-            { label: 'Umfänge', value: `${formatNumber(s.totalPerimeter)} ${s.unitLen}` },
-            { label: 'Zählung', value: `${s.totalCount} Stk.` },
-        ];
-        boxes.forEach((b, i) => {
-            const x = 15 + i * (w + 10);
-            doc.setFillColor(245, 247, 250);
-            doc.roundedRect(x, y, w, 20, 2, 2, 'F');
-            doc.setFontSize(8); doc.setTextColor(110); doc.setFont('helvetica', 'normal');
-            doc.text(b.label, x + 4, y + 7);
-            doc.setFontSize(12); doc.setTextColor(37, 99, 235); doc.setFont('helvetica', 'bold');
-            doc.text(b.value, x + 4, y + 16);
-        });
+        // KPI-Boxen
+        this._drawKpiRow(doc, 56, [
+            { label: 'Länge',     value: `${formatNumber(s.totalLength)} ${s.unitLen}`,  accent: 'teal' },
+            { label: 'Fläche',    value: `${formatNumber(s.totalArea)} ${s.unitArea}`,   accent: 'coral' },
+            { label: 'Umfänge',   value: `${formatNumber(s.totalPerimeter)} ${s.unitLen}`, accent: 'teal' },
+            { label: 'Zählung',   value: `${s.totalCount} Stk.`, accent: 'coral' },
+        ], pageW);
 
-        // Detail-Tabelle
+        // Messungen-Tabelle
+        const layerMap = Object.fromEntries(this.store.project.layers.map(l => [l.id, l]));
         const rows = floor.measurements.map((m, i) => {
-            const layer = this.store.getLayer(m.layerId);
+            const layer = layerMap[m.layerId];
             return [
                 String(i + 1),
                 this.typeLabel(m.type),
@@ -411,13 +545,18 @@ export class ExportManager {
             ];
         });
         autoTable(doc, {
-            startY: y + 30,
+            startY: 96,
             head: [['#', 'Typ', 'Bezeichnung', 'Ebene', 'Wert', 'Seite']],
             body: rows.length ? rows : [['—', '—', 'Keine Messungen', '—', '—', '—']],
             theme: 'grid',
-            styles: { fontSize: 9, cellPadding: 2.5 },
-            headStyles: { fillColor: [37, 99, 235], textColor: 255 },
-            alternateRowStyles: { fillColor: [248, 250, 252] },
+            styles: { fontSize: 9, cellPadding: 2.6, lineColor: LINE, lineWidth: 0.1, textColor: INK },
+            headStyles: { fillColor: TEAL, textColor: 255, fontStyle: 'bold' },
+            alternateRowStyles: { fillColor: PAPER_SOFT },
+            columnStyles: {
+                0: { cellWidth: 10, halign: 'right', textColor: MUTED },
+                4: { fontStyle: 'bold' },
+                5: { halign: 'center', cellWidth: 14 },
+            },
         });
     }
 
@@ -453,7 +592,6 @@ export class ExportManager {
         setTimeout(() => URL.revokeObjectURL(url), 500);
     }
 
-    // --- Helpers ---
     _csvEscape(s) { return `"${String(s).replace(/"/g, '""')}"`; }
     _sanitize(s) { return (s || 'Projekt').replace(/[^a-zA-Z0-9\-_ ]/g, '').trim().replace(/\s+/g, '_') || 'Projekt'; }
     _hexToRgba(hex, a) {
