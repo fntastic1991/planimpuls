@@ -536,7 +536,10 @@ document.addEventListener('DOMContentLoaded', () => {
             // und deren Messungen mit dem korrigierten Faktor neu berechnen.
             for (const floor of store.project.floors) {
                 const prev = floor.scale.factor;
-                ensureFloorScale(floor, pdfLoader.renderScale);
+                const userUnit = pdfLoader.hasPdf(floor.id)
+                    ? await pdfLoader.getUserUnit(floor.id, floor.currentPageIndex || 1)
+                    : (floor.scale.userUnit || 1);
+                ensureFloorScale(floor, pdfLoader.renderScale, userUnit);
                 if (prev !== floor.scale.factor && floor.measurements.length) {
                     canvasManager.recalculateAll(floor);
                 }
@@ -595,9 +598,10 @@ document.addEventListener('DOMContentLoaded', () => {
             floor.pdfFileName = info.fileName;
             floor.pageCount = info.pageCount;
             floor.currentPageIndex = 1;
-            // Default-Massstab anhand des effektiven renderScale berechnen,
+            // Default-Massstab anhand des effektiven renderScale UND PDF /UserUnit berechnen,
             // wenn noch nicht kalibriert wurde.
-            ensureFloorScale(floor, pdfLoader.renderScale);
+            const userUnit = await pdfLoader.getUserUnit(floor.id, 1);
+            ensureFloorScale(floor, pdfLoader.renderScale, userUnit);
             await activateFloor(floor.id);
             renderProjectTree();
         } catch (err) {
@@ -674,7 +678,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const r = parseFloat(ui.ratioInput.value);
         if (!r || r <= 0) return alert('Bitte einen gültigen Massstab eingeben.');
         if (!getActiveFloor()) return alert('Bitte zuerst eine Etage anlegen / aktivieren.');
-        canvasManager.setScaleByRatio(r, pdfLoader.renderScale);
+        canvasManager.setScaleByRatio(r, pdfLoader.renderScale, pdfLoader.currentUserUnit);
         updateScaleBadge();
         ui.scalePopover.classList.add('hidden');
     }

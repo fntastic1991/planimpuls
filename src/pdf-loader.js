@@ -11,6 +11,7 @@ export class PDFLoader {
         this.renderScale = 1.5;   // Basis Render-Auflösung
         this.userZoom = 1.0;      // User-Zoom (CSS-Skalierung)
         this._lastViewport = null;
+        this.currentUserUnit = 1; // PDF /UserUnit der aktiven Page (default 1.0)
     }
 
     get effectiveScale() {
@@ -40,6 +41,18 @@ export class PDFLoader {
         return this.pdfCache.has(floorId);
     }
 
+    // /UserUnit der Page lesen, ohne den aktiven Floor zu wechseln.
+    async getUserUnit(floorId, pageNumber = 1) {
+        const entry = this.pdfCache.get(floorId);
+        if (!entry) return 1;
+        try {
+            const page = await entry.pdf.getPage(pageNumber);
+            return page.userUnit || 1;
+        } catch {
+            return 1;
+        }
+    }
+
     async setActiveFloor(floorId) {
         this.currentFloorId = floorId;
         const entry = this.pdfCache.get(floorId);
@@ -56,6 +69,9 @@ export class PDFLoader {
 
         const page = await this.currentPdf.getPage(pageNumber);
         const viewport = page.getViewport({ scale: this.renderScale });
+        // PDF /UserUnit (default 1) wird in viewport-Pixeln bereits multipliziert.
+        // Wir merken sie uns für die Massstab-Berechnung (Meter pro Backing-Store-Pixel).
+        this.currentUserUnit = page.userUnit || 1;
 
         // Backing Store in voller Auflösung (scharfer Render)
         this.canvas.width = viewport.width;
@@ -77,6 +93,7 @@ export class PDFLoader {
             cssHeight: cssH,
             pageNum: pageNumber,
             totalPages: this.pdfCache.get(this.currentFloorId)?.pageCount || 1,
+            userUnit: this.currentUserUnit,
         };
     }
 

@@ -160,15 +160,18 @@ export class CanvasManager {
         this.recalculateAll();
     }
 
-    setScaleByRatio(denominator, renderScale, opts = {}) {
+    setScaleByRatio(denominator, renderScale, userUnit = 1, opts = {}) {
         const floor = this.store.getActiveFloor();
         if (!floor) return;
-        // Meter pro Pixel im Backing Store: 1 Pixel = (1/72)" / renderScale Papier-Inch.
+        // Meter pro Pixel im Backing Store unter Berücksichtigung von /UserUnit:
+        // 1 Pixel = 1/(renderScale*userUnit) PDF-Punkt = (1/72)" Papier.
         // Bei Massstab 1:N entspricht 1 Papier-Meter -> N reale Meter.
-        const metersPerPixelPaper = (1 / renderScale) * (1 / 72) * 0.0254;
+        const u = userUnit || floor.scale.userUnit || 1;
+        const metersPerPixelPaper = (1 / (renderScale * u)) * (1 / 72) * 0.0254;
         floor.scale.factor = metersPerPixelPaper * denominator;
         floor.scale.unit = 'm';
         floor.scale.ratio = denominator;
+        floor.scale.userUnit = u;
         floor.scale.calibrated = !opts.silent;
         if (!opts.silent) {
             this.activePoints = [];

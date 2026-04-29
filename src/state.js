@@ -25,21 +25,33 @@ export function createEmptyProject(name = 'Neues Projekt') {
 }
 
 // Berechnet den Default-Massstabsfaktor (Meter pro Pixel im Backing Store)
-// für ein gegebenes Verhältnis und renderScale. Wird verwendet sowohl beim
-// frischen PDF-Import als auch bei Migration alter Projektdateien.
-export function defaultScaleFactor(ratio, renderScale) {
-    return (1 / renderScale) * (1 / 72) * 0.0254 * ratio;
+// für ein gegebenes Verhältnis, renderScale und PDF /UserUnit.
+// Hintergrund: PDF.js liefert viewport.width = pageView * scale * userUnit.
+// 1 Backing-Store-Pixel entspricht also 1/(renderScale*userUnit) PDF-Punkten = (1/72)" Papier.
+export function defaultScaleFactor(ratio, renderScale, userUnit = 1) {
+    const u = userUnit || 1;
+    return (1 / (renderScale * u)) * (1 / 72) * 0.0254 * ratio;
 }
 
 // Sicherstellen, dass eine Etage einen brauchbaren scale.factor hat.
-// Wenn nicht kalibriert oder factor fehlt/falsch (Legacy 0.017638), neu berechnen.
-export function ensureFloorScale(floor, renderScale) {
+// Wenn factor aus einer Ratio (1:N) abgeleitet wird, immer mit aktueller renderScale
+// und userUnit neu berechnen — das migriert auch alte Projekte mit Legacy-Faktoren.
+// Nur eine explizit manuelle Kalibrierung (calibrated=true und ratio=null) bleibt unangetastet.
+export function ensureFloorScale(floor, renderScale, userUnit = 1) {
     if (!floor || !floor.scale) return;
-    const ratio = floor.scale.ratio || 50;
-    if (floor.scale.calibrated && floor.scale.factor != null) return; // User hat aktiv kalibriert — nicht anfassen
-    floor.scale.factor = defaultScaleFactor(ratio, renderScale);
+    const u = userUnit || floor.scale.userUnit || 1;
+    floor.scale.userUnit = u;
     floor.scale.unit = floor.scale.unit || 'm';
+
+    const isManual = floor.scale.calibrated && (floor.scale.ratio == null);
+    if (isManual && floor.scale.factor != null) {
+        // Echte 2-Punkt-Kalibrierung — Faktor in Ruhe lassen.
+        return;
+    }
+
+    const ratio = floor.scale.ratio || 50;
     floor.scale.ratio = ratio;
+    floor.scale.factor = defaultScaleFactor(ratio, renderScale, u);
 }
 
 export function createFloor(name = 'Neue Etage') {
@@ -57,6 +69,7 @@ export function createFloor(name = 'Neue Etage') {
             unit: 'm',
             ratio: 50,         // 1:50 default — wird mit echtem renderScale skaliert
             calibrated: false,
+            userUnit: 1,       // PDF /UserUnit der Page (für korrekte Default-Skala)
         },
         measurements: [],      // { ..., pageIndex, floorId, layerId }
         viewState: {           // letzter Zoom/Pan pro Etage

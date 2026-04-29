@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
-    <link rel="stylesheet" href="style.css?v=22">
+    <link rel="stylesheet" href="style.css?v=23">
 
     <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/png" href="logo.png">
@@ -342,16 +342,7 @@
     </div>
     <div class="pop-body">
         <div class="pop-section">
-            <label>Verhältnis 1 : x</label>
-            <div class="row">
-                <span class="prefix">1 :</span>
-                <input type="number" id="scale-ratio-input" placeholder="50">
-                <button id="apply-ratio-btn" class="btn-primary">Setzen</button>
-            </div>
-        </div>
-        <div class="or-divider"><span>oder</span></div>
-        <div class="pop-section">
-            <label>Manuell: zwei Punkte auf Plan → Länge eingeben</label>
+            <label>Manuell: zwei Punkte auf Plan → reale Länge eingeben <span class="badge-recommended">empfohlen</span></label>
             <div class="row">
                 <input type="number" id="real-distance-input" placeholder="Länge">
                 <select id="unit-select">
@@ -361,7 +352,17 @@
                 </select>
                 <button id="confirm-scale" class="btn-primary">OK</button>
             </div>
-            <p class="hint">Tool „Massstab“ aktiv? Dann zwei Punkte auf dem Plan klicken und hier die reale Länge eingeben.</p>
+            <p class="hint">Tool „Massstab“ aktivieren, zwei Referenzpunkte auf dem Plan klicken (z.B. eine bemasste Wand), dann die reale Länge eintragen. <strong>Genaueste Methode</strong> — funktioniert auch bei skalierten oder unbekannten Plänen.</p>
+        </div>
+        <div class="or-divider"><span>oder Verhältnis</span></div>
+        <div class="pop-section">
+            <label>Verhältnis 1 : x</label>
+            <div class="row">
+                <span class="prefix">1 :</span>
+                <input type="number" id="scale-ratio-input" placeholder="50">
+                <button id="apply-ratio-btn" class="btn-primary">Setzen</button>
+            </div>
+            <p class="hint">Nur zuverlässig, wenn der Plan exakt im angegebenen Massstab gespeichert wurde.</p>
         </div>
     </div>
 </div>
