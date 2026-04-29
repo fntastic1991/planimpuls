@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
-    <link rel="stylesheet" href="style.css?v=25">
+    <link rel="stylesheet" href="style.css?v=26">
 
     <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/png" href="logo.png">
@@ -392,6 +392,10 @@
             <div class="prop-field">
                 <label>Datum</label>
                 <input type="date" id="proj-date">
+            </div>
+            <div class="prop-field">
+                <label>Anzahl Etagen <span class="muted-hint">(manuell — überschreibt die automatische Zählung im Bericht)</span></label>
+                <input type="number" id="proj-floors-count" min="0" placeholder="leer = automatisch">
             </div>
             <div class="modal-actions">
                 <button id="settings-save" class="btn-primary">Speichern</button>

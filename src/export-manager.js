@@ -81,6 +81,14 @@ export class ExportManager {
         })[t] || t;
     }
 
+    // Anzahl Etagen: manueller Override aus Projekt-Settings hat Vorrang.
+    getFloorsCount(project = this.store.project) {
+        if (project.floorsCountOverride != null && Number.isFinite(project.floorsCountOverride)) {
+            return project.floorsCountOverride;
+        }
+        return project.floors.length;
+    }
+
     // =====================================================
     // 1) BERICHT
     // =====================================================
@@ -107,7 +115,7 @@ export class ExportManager {
                 ['Kunde', project.client || '—'],
                 ['Adresse', project.address || '—'],
                 ['Datum', new Date(project.date).toLocaleDateString('de-CH')],
-                ['Anzahl Etagen', String(project.floors.length)],
+                ['Anzahl Etagen', String(this.getFloorsCount(project))],
             ],
             columnStyles: {
                 0: { fontStyle: 'bold', cellWidth: 42, textColor: MUTED },
@@ -387,7 +395,7 @@ export class ExportManager {
             { label: 'Kunde',   value: project.client || '—' },
             { label: 'Adresse', value: project.address || '—' },
             { label: 'Datum',   value: new Date(project.date).toLocaleDateString('de-CH') },
-            { label: 'Etagen',  value: String(project.floors.length) },
+            { label: 'Etagen',  value: String(this.getFloorsCount(project)) },
         ];
         let my = metaY;
         for (const it of metaItems) {

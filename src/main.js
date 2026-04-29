@@ -91,6 +91,7 @@ document.addEventListener('DOMContentLoaded', () => {
         projClient: $('proj-client'),
         projAddress: $('proj-address'),
         projDate: $('proj-date'),
+        projFloorsCount: $('proj-floors-count'),
         settingsSave: $('settings-save'),
         // export modal
         exportModal: document.querySelector('#export-modal'),
@@ -768,15 +769,19 @@ document.addEventListener('DOMContentLoaded', () => {
         ui.projClient.value = p.client || '';
         ui.projAddress.value = p.address || '';
         ui.projDate.value = p.date ? new Date(p.date).toISOString().slice(0, 10) : '';
+        ui.projFloorsCount.value = (p.floorsCountOverride != null) ? String(p.floorsCountOverride) : '';
         ui.settingsModal.classList.remove('hidden');
     });
     ui.closeSettings.addEventListener('click', () => ui.settingsModal.classList.add('hidden'));
     ui.settingsSave.addEventListener('click', () => {
+        const raw = ui.projFloorsCount.value.trim();
+        const override = raw === '' ? null : Math.max(0, parseInt(raw, 10) || 0);
         store.updateProjectMeta({
             name: ui.projName.value.trim() || 'Projekt',
             client: ui.projClient.value,
             address: ui.projAddress.value,
             date: ui.projDate.value ? new Date(ui.projDate.value).toISOString() : new Date().toISOString(),
+            floorsCountOverride: override,
         });
         ui.settingsModal.classList.add('hidden');
     });

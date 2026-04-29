@@ -19,6 +19,9 @@ export function createEmptyProject(name = 'Neues Projekt') {
         version: '2.0',
         floors: [],
         activeFloorId: null,
+        // Optionaler manueller Override für die Anzahl Etagen im Bericht.
+        // null = automatisch (project.floors.length).
+        floorsCountOverride: null,
         layers: JSON.parse(JSON.stringify(DEFAULT_LAYERS)),
         activeLayerId: 'layer-default',
     };
