@@ -140,10 +140,19 @@ export class CanvasManager {
     setScale(realDistance, unitName) {
         if (this.activePoints.length !== 2) return;
         const pxDist = calculateDistance(this.activePoints[0], this.activePoints[1]);
+        if (pxDist < 0.5) {
+            alert('Die beiden Massstab-Punkte sind zu nah beieinander. Bitte erneut setzen.');
+            this.activePoints = [];
+            this.redraw();
+            return;
+        }
         const floor = this.store.getActiveFloor();
         if (!floor) return;
-        floor.scale.factor = realDistance / pxDist;
-        floor.scale.unit = unitName;
+        // Eingabe-Einheit auf Meter normieren, damit alle Etagen / Exporte konsistent in Metern rechnen.
+        const toMeters = unitName === 'mm' ? 0.001 : unitName === 'cm' ? 0.01 : 1;
+        const realMeters = realDistance * toMeters;
+        floor.scale.factor = realMeters / pxDist;
+        floor.scale.unit = 'm';
         floor.scale.calibrated = true;
         floor.scale.ratio = null;
         this.activePoints = [];
@@ -151,25 +160,29 @@ export class CanvasManager {
         this.recalculateAll();
     }
 
-    setScaleByRatio(denominator, renderScale) {
+    setScaleByRatio(denominator, renderScale, opts = {}) {
         const floor = this.store.getActiveFloor();
         if (!floor) return;
-        // Meter pro Pixel im Backing Store
+        // Meter pro Pixel im Backing Store: 1 Pixel = (1/72)" / renderScale Papier-Inch.
+        // Bei Massstab 1:N entspricht 1 Papier-Meter -> N reale Meter.
         const metersPerPixelPaper = (1 / renderScale) * (1 / 72) * 0.0254;
         floor.scale.factor = metersPerPixelPaper * denominator;
         floor.scale.unit = 'm';
         floor.scale.ratio = denominator;
-        floor.scale.calibrated = true;
-        this.activePoints = [];
-        this.setTool('select');
+        floor.scale.calibrated = !opts.silent;
+        if (!opts.silent) {
+            this.activePoints = [];
+            this.setTool('select');
+        }
         this.recalculateAll();
     }
 
-    recalculateAll() {
-        const floor = this.store.getActiveFloor();
+    recalculateAll(targetFloor = null) {
+        const floor = targetFloor || this.store.getActiveFloor();
         if (!floor) return;
         const sf = floor.scale.factor;
         const unit = floor.scale.unit;
+        if (sf == null) return; // ohne factor keine Berechnung
         for (const m of floor.measurements) this._recalcMeasurement(m, sf, unit);
         this.store.notify('measurements:changed');
         this.redraw();

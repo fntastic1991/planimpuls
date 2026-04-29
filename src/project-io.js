@@ -7,7 +7,9 @@ export async function saveProjectToFile(store, pdfLoader) {
     const exportData = JSON.parse(JSON.stringify(project));
     for (const floor of exportData.floors) {
         const base64 = pdfLoader.getBase64(floor.id);
-        floor.pdfData = base64;
+        // Nur überschreiben, wenn wir tatsächlich frische Bytes aus dem Loader haben.
+        // Sonst pdfData aus dem deep-copy beibehalten (verhindert Datenverlust beim Save).
+        if (base64) floor.pdfData = base64;
     }
     const blob = new Blob([JSON.stringify(exportData)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);

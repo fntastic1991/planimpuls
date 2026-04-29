@@ -127,10 +127,10 @@ export class ExportManager {
         const project = this.store.project;
         const doc = new jsPDF({ unit: 'pt', format: 'a4', orientation: 'landscape' });
         let isFirst = true;
+        let anyPage = false;
 
         for (const floor of project.floors) {
             if (!this.pdfLoader.hasPdf(floor.id)) continue;
-            await this.pdfLoader.setActiveFloor(floor.id);
             const entry = this.pdfLoader.pdfCache.get(floor.id);
             if (!entry) continue;
 
@@ -140,6 +140,7 @@ export class ExportManager {
 
                 if (!isFirst) doc.addPage();
                 isFirst = false;
+                anyPage = true;
 
                 // Bild in Seite einpassen
                 const pageW = doc.internal.pageSize.getWidth();
@@ -159,6 +160,9 @@ export class ExportManager {
             }
         }
 
+        if (!anyPage) {
+            throw new Error('Kein PDF-Plan in den Etagen geladen.');
+        }
         doc.save(filename || `${this._sanitize(project.name)}_Plaene_annotiert.pdf`);
     }
 

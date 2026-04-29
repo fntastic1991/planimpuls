@@ -1,4 +1,4 @@
-import { ProjectStore, createFloor, createEmptyProject } from './state.js';
+import { ProjectStore, createFloor, createEmptyProject, ensureFloorScale } from './state.js';
 import { PDFLoader } from './pdf-loader.js';
 import { CanvasManager } from './canvas-manager.js';
 import { ExportManager } from './export-manager.js';
@@ -163,10 +163,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 e.preventDefault();
                 startRenameFloor(e.currentTarget, f.id);
             });
-            el.querySelector('.tf-del').addEventListener('click', (e) => {
+            el.querySelector('.tf-del').addEventListener('click', async (e) => {
                 e.stopPropagation();
-                if (confirm(`Etage "${f.name}" inkl. aller Messungen löschen?`)) {
-                    store.removeFloor(f.id);
+                if (!confirm(`Etage "${f.name}" inkl. aller Messungen löschen?`)) return;
+                const wasActive = (store.project.activeFloorId === f.id);
+                pdfLoader.pdfCache.delete(f.id);
+                if (pdfLoader.currentFloorId === f.id) {
+                    pdfLoader.currentFloorId = null;
+                    pdfLoader.currentPdf = null;
+                }
+                store.removeFloor(f.id);
+                // Wenn die aktive Etage gelöscht wurde: Canvas auf neuen Stand bringen.
+                if (wasActive) {
+                    const next = store.project.activeFloorId;
+                    if (next) await activateFloor(next);
+                    else clearCanvasArea();
                 }
             });
             ui.projectTree.appendChild(el);
@@ -520,6 +531,16 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             showProgress('Projekt wird geladen…');
             await loadProjectFromFile(e.target.files[0], store, pdfLoader);
+            // Migration: alte Projekte hatten einen Default-Faktor, der nicht mit
+            // renderScale 1.5 übereinstimmt — nur unkalibrierte Etagen anpassen
+            // und deren Messungen mit dem korrigierten Faktor neu berechnen.
+            for (const floor of store.project.floors) {
+                const prev = floor.scale.factor;
+                ensureFloorScale(floor, pdfLoader.renderScale);
+                if (prev !== floor.scale.factor && floor.measurements.length) {
+                    canvasManager.recalculateAll(floor);
+                }
+            }
             const first = store.project.floors[0];
             if (first) await activateFloor(first.id);
         } catch (err) {
@@ -574,6 +595,9 @@ document.addEventListener('DOMContentLoaded', () => {
             floor.pdfFileName = info.fileName;
             floor.pageCount = info.pageCount;
             floor.currentPageIndex = 1;
+            // Default-Massstab anhand des effektiven renderScale berechnen,
+            // wenn noch nicht kalibriert wurde.
+            ensureFloorScale(floor, pdfLoader.renderScale);
             await activateFloor(floor.id);
             renderProjectTree();
         } catch (err) {
@@ -628,27 +652,52 @@ document.addEventListener('DOMContentLoaded', () => {
         const f = getActiveFloor();
         if (f && f.scale.ratio) ui.ratioInput.value = f.scale.ratio;
     });
-    ui.closeScale.addEventListener('click', () => ui.scalePopover.classList.add('hidden'));
-    document.addEventListener('click', (e) => {
-        if (!ui.scalePopover.contains(e.target) && !ui.scaleTrigger.contains(e.target)
-            && !e.target.closest('[data-tool="scale"]')) {
-            ui.scalePopover.classList.add('hidden');
+    function closeScalePopover({ resetTool = false } = {}) {
+        ui.scalePopover.classList.add('hidden');
+        if (resetTool && canvasManager.currentTool === 'scale') {
+            canvasManager.activePoints = [];
+            canvasManager.isDrawing = false;
+            setTool('select');
         }
+    }
+    ui.closeScale.addEventListener('click', () => closeScalePopover({ resetTool: true }));
+    document.addEventListener('click', (e) => {
+        if (ui.scalePopover.classList.contains('hidden')) return;
+        if (ui.scalePopover.contains(e.target)) return;
+        if (ui.scaleTrigger.contains(e.target)) return;
+        if (e.target.closest('[data-tool="scale"]')) return;
+        // Während aktivem Massstab-Tool: Klicks auf den Plan setzen Punkte — Popover offen lassen.
+        if (canvasManager.currentTool === 'scale') return;
+        closeScalePopover();
     });
-    ui.applyRatioBtn.addEventListener('click', () => {
+    function applyRatio() {
         const r = parseFloat(ui.ratioInput.value);
         if (!r || r <= 0) return alert('Bitte einen gültigen Massstab eingeben.');
+        if (!getActiveFloor()) return alert('Bitte zuerst eine Etage anlegen / aktivieren.');
         canvasManager.setScaleByRatio(r, pdfLoader.renderScale);
         updateScaleBadge();
         ui.scalePopover.classList.add('hidden');
-    });
-    ui.confirmScale.addEventListener('click', () => {
+    }
+    function confirmManualScale() {
         const d = parseFloat(ui.realDistance.value);
         if (!d || d <= 0) return alert('Bitte gültige Länge eingeben.');
+        if (canvasManager.activePoints.length !== 2) {
+            return alert('Bitte zuerst zwei Punkte auf dem Plan setzen (Tool „Massstab kalibrieren“).');
+        }
+        // Eingabe ggf. auf Meter normieren — Faktor wird intern in der gewählten Einheit gespeichert,
+        // alle Folgemessungen rechnen mit derselben Einheit.
         canvasManager.setScale(d, ui.unitSelect.value);
         updateScaleBadge();
         ui.scalePopover.classList.add('hidden');
         ui.realDistance.value = '';
+    }
+    ui.applyRatioBtn.addEventListener('click', applyRatio);
+    ui.confirmScale.addEventListener('click', confirmManualScale);
+    ui.ratioInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); applyRatio(); }
+    });
+    ui.realDistance.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); confirmManualScale(); }
     });
 
     // Layers

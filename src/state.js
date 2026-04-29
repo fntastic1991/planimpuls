@@ -24,6 +24,24 @@ export function createEmptyProject(name = 'Neues Projekt') {
     };
 }
 
+// Berechnet den Default-Massstabsfaktor (Meter pro Pixel im Backing Store)
+// für ein gegebenes Verhältnis und renderScale. Wird verwendet sowohl beim
+// frischen PDF-Import als auch bei Migration alter Projektdateien.
+export function defaultScaleFactor(ratio, renderScale) {
+    return (1 / renderScale) * (1 / 72) * 0.0254 * ratio;
+}
+
+// Sicherstellen, dass eine Etage einen brauchbaren scale.factor hat.
+// Wenn nicht kalibriert oder factor fehlt/falsch (Legacy 0.017638), neu berechnen.
+export function ensureFloorScale(floor, renderScale) {
+    if (!floor || !floor.scale) return;
+    const ratio = floor.scale.ratio || 50;
+    if (floor.scale.calibrated && floor.scale.factor != null) return; // User hat aktiv kalibriert — nicht anfassen
+    floor.scale.factor = defaultScaleFactor(ratio, renderScale);
+    floor.scale.unit = floor.scale.unit || 'm';
+    floor.scale.ratio = ratio;
+}
+
 export function createFloor(name = 'Neue Etage') {
     return {
         id: `floor-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -33,10 +51,11 @@ export function createFloor(name = 'Neue Etage') {
         pageCount: 0,
         currentPageIndex: 1,
         // Massstab pro Etage (oft pro Plan unterschiedlich)
+        // factor wird beim Laden des PDF nach renderScale berechnet (siehe applyDefaultScale).
         scale: {
-            factor: 0.017638,  // 1 px ≈ 1.7 cm bei 1:50 auf 72 DPI * 1.5 render
+            factor: null,
             unit: 'm',
-            ratio: 50,         // 1:50 default
+            ratio: 50,         // 1:50 default — wird mit echtem renderScale skaliert
             calibrated: false,
         },
         measurements: [],      // { ..., pageIndex, floorId, layerId }
